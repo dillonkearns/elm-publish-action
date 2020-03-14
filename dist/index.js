@@ -978,6 +978,12 @@ function run() {
             core.startGroup('Generate elm package docs');
             yield exec_1.exec('npx elm make --docs docs.json');
             core.endGroup();
+            core.startGroup('elm-format --validate');
+            yield exec_1.exec('npx elm-format --validate');
+            core.endGroup();
+            core.startGroup('elm-test');
+            yield exec_1.exec('npx elm-test');
+            core.endGroup();
         }
         catch (error) {
             core.setFailed(error.message);
