@@ -53,7 +53,6 @@ async function run(): Promise<void> {
         core.debug(
           'Tag create function succeeded. Checking working directory for changes.'
         )
-        await exec('git checkout package-lock.json')
         await exec('git diff --exit-code')
         core.debug('No changes... publishing')
         await exec('npx --no-install elm publish')
