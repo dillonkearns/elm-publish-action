@@ -14,6 +14,8 @@ const octokit = new github.GitHub(gitHubToken)
 async function run(): Promise<void> {
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
+    const githubRef = process.env['GITHUB_REF'] || ''
+
     const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
 
     const versionsResponse = await axios.get(
@@ -24,7 +26,11 @@ async function run(): Promise<void> {
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
     core.debug(`versionsResponse ${versionsResponse}`)
 
-    if (currentElmJsonVersion === '1.0.0') {
+    if (githubRef !== 'refs/heads/master') {
+      core.info(
+        'This action only publishes from the master branch. Skipping checks.'
+      )
+    } else if (currentElmJsonVersion === '1.0.0') {
       core.info('The version in elm.json is at 1.0.0.')
       core.info(
         "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
@@ -38,7 +44,10 @@ async function run(): Promise<void> {
       )
     } else if (publishedVersions.includes(currentElmJsonVersion)) {
       core.info(
-        "This Elm version has already been published.\n\nJust run `elm bump` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!"
+        `The current version in your elm.json has already been published: ${publishedUrl(
+          githubRepo,
+          currentElmJsonVersion
+        )} .\n\nJust run \`elm bump\` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!`
       )
     } else {
       const options = {
