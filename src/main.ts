@@ -41,7 +41,7 @@ async function run(): Promise<void> {
       core.debug('running command 1')
       let status = await exec('npx --no-install elm publish', undefined, {
         ...options,
-        failOnStdErr: true
+        ignoreReturnCode: true
       })
       core.debug('finished command 1 with no error')
       if (status === 0) {

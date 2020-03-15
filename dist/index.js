@@ -7285,7 +7285,7 @@ function run() {
                     }
                 };
                 core.debug('running command 1');
-                let status = yield exec_1.exec('npx --no-install elm publish', undefined, Object.assign(Object.assign({}, options), { failOnStdErr: true }));
+                let status = yield exec_1.exec('npx --no-install elm publish', undefined, Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
                 core.debug('finished command 1 with no error');
                 if (status === 0) {
                     core.debug('Already published successfully!');
