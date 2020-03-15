@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-// import {exec} from '@actions/exec'
+import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
@@ -7,6 +7,8 @@ const tools = new Toolkit()
 
 const gitHubToken = core.getInput('github-token')
 const octokit = new github.GitHub(gitHubToken)
+
+let publishOutput = ''
 
 async function run(): Promise<void> {
   try {
@@ -26,12 +28,27 @@ async function run(): Promise<void> {
     if (Object.keys(versionsResponse.data).includes(elmVersion)) {
       core.debug(`This Elm version has already been published.`)
     } else {
-      createAnnotatedTag(elmVersion)
-      try {
-        // await exec('npx --no-install elm publish')
-      } catch (e) {
-        // createAnnotatedTag(elmVersion)
-        // await exec('npx --no-install elm publish')
+      const options = {
+        // failOnStdErr: false,
+        listeners: {
+          stdout: (data: Buffer) => {
+            publishOutput += data.toString()
+          },
+          stderr: (data: Buffer) => {
+            publishOutput += data.toString()
+          }
+        }
+      }
+      let status = await exec(
+        'npx --no-install elm publish',
+        undefined,
+        options
+      )
+      if (status === 0 && /-- NO TAG --/.test(publishOutput)) {
+        createAnnotatedTag(elmVersion)
+        await exec('npx --no-install elm publish')
+      } else {
+        core.setFailed(publishOutput)
       }
     }
   } catch (error) {
