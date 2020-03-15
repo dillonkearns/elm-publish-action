@@ -1,5 +1,5 @@
 name: 'Elm Actions'
-description: 'Scripts for maintaining Elm projects and Elm packages.'
+description: 'Publish Elm package if the current version is unpublished.'
 author: 'Dillon Kearns'
 inputs:
   github-token:
