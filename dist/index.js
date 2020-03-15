@@ -6202,9 +6202,9 @@ function run() {
             console.log(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`);
             const versionsResponse = yield axios_1.default.get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`);
             const elmVersion = JSON.parse(tools.getFile('elm.json')).version;
-            console.log('elmVersion', elmVersion);
-            console.log('versionsResponse', versionsResponse);
-            console.log('Version published', versionsResponse.data[elmVersion]);
+            core.debug(`elmVersion ${elmVersion}`);
+            core.debug(`versionsResponse ${versionsResponse}`);
+            core.debug(`Version published ${versionsResponse.data[elmVersion]}`);
             // core.startGroup('Generate elm package docs')
             // await exec('npx elm make --docs docs.json')
             // core.endGroup()
