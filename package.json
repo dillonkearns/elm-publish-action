@@ -10,8 +10,8 @@
     "format-check": "prettier --check **/*.ts",
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
-    "test": "jest",
-    "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
+    "test": "echo todo",
+    "all": "npm run build && npm run format && npm run pack && npm test"
   },
   "repository": {
     "type": "git",
@@ -26,7 +26,9 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@actions/exec": "^1.0.3"
+    "@actions/exec": "^1.0.3",
+    "actions-toolkit": "^3.0.1",
+    "axios": "^0.19.2"
   },
   "devDependencies": {
     "@types/jest": "^24.0.23",
