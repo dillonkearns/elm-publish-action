@@ -7275,7 +7275,6 @@ function run() {
             }
             else {
                 const options = {
-                    // failOnStdErr: false,
                     listeners: {
                         stdout: (data) => {
                             publishOutput += data.toString();
@@ -7285,8 +7284,11 @@ function run() {
                         }
                     }
                 };
-                let status = yield exec_1.exec('npx --no-install elm publish', undefined, options);
-                if (status === 0 && /-- NO TAG --/.test(publishOutput)) {
+                let status = yield exec_1.exec('npx --no-install elm publish', undefined, Object.assign(Object.assign({}, options), { failOnStdErr: false }));
+                if (status === 0) {
+                    // tag already existed -- no need to call publish
+                }
+                else if (/-- NO TAG --/.test(publishOutput)) {
                     createAnnotatedTag(elmVersion);
                     yield exec_1.exec('npx --no-install elm publish');
                 }

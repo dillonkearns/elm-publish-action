@@ -29,7 +29,6 @@ async function run(): Promise<void> {
       core.debug(`This Elm version has already been published.`)
     } else {
       const options = {
-        // failOnStdErr: false,
         listeners: {
           stdout: (data: Buffer) => {
             publishOutput += data.toString()
@@ -39,11 +38,10 @@ async function run(): Promise<void> {
           }
         }
       }
-      let status = await exec(
-        'npx --no-install elm publish',
-        undefined,
-        options
-      )
+      let status = await exec('npx --no-install elm publish', undefined, {
+        ...options,
+        failOnStdErr: false
+      })
       if (status === 0) {
         // tag already existed -- no need to call publish
       } else if (/-- NO TAG --/.test(publishOutput)) {
