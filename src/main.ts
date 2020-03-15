@@ -38,15 +38,21 @@ async function run(): Promise<void> {
           }
         }
       }
+      core.debug('running command 1')
       let status = await exec('npx --no-install elm publish', undefined, {
         ...options,
         failOnStdErr: false
       })
+      core.debug('finished command 1 with no error')
       if (status === 0) {
+        core.debug('Already published successfully!')
         // tag already existed -- no need to call publish
       } else if (/-- NO TAG --/.test(publishOutput)) {
-        createAnnotatedTag(elmVersion)
+        core.debug('Found NO TAG - trying to create tag')
+        await createAnnotatedTag(elmVersion)
+        core.debug('Tag create function succeeded. Calling publish again.')
         await exec('npx --no-install elm publish')
+        core.debug('Published successfully.')
       } else {
         core.setFailed(publishOutput)
       }
