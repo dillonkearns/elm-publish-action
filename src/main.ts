@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-// import {exec} from '@actions/exec'
+import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 const tools = new Toolkit()
@@ -21,6 +21,11 @@ async function run(): Promise<void> {
     core.debug(`elmVersion ${elmVersion}`)
     core.debug(`versionsResponse ${versionsResponse}`)
     core.debug(`Version published ${versionsResponse.data[elmVersion]}`)
+    if (Object.keys(versionsResponse.data).includes(elmVersion)) {
+      core.debug(`This Elm version has already been published.`)
+    } else {
+      exec('npx --no-install elm publish')
+    }
 
     // core.startGroup('Generate elm package docs')
     // await exec('npx elm make --docs docs.json')
