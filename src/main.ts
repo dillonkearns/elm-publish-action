@@ -27,10 +27,10 @@ async function run(): Promise<void> {
       core.debug(`This Elm version has already been published.`)
     } else {
       try {
-        await exec('npx --no-install elm publish')
+        // await exec('npx --no-install elm publish')
       } catch (e) {
         createAnnotatedTag(elmVersion)
-        await exec('npx --no-install elm publish')
+        // await exec('npx --no-install elm publish')
       }
     }
   } catch (error) {
