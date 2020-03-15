@@ -16,6 +16,10 @@ This action only publishes on the master branch. So a good workflow is to change
 then once you merge that branch the new release will happen as soon as your CI finishes. Or if your CI fails,
 you'll get a chance to fix it before the release goes out.
 
+![Screenshot 1](https://raw.githubusercontent.com/dillonkearns/elm-publish-action/master/screenshots/1.png)
+
+![Screenshot 2](https://raw.githubusercontent.com/dillonkearns/elm-publish-action/master/screenshots/2.png)
+
 ## Example Workflow Setup
 
 
