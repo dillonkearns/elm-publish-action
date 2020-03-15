@@ -1,101 +1,63 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+# elm-publish-action
 
-# Create a JavaScript Action using TypeScript
+Publishes elm releases if you're on the master branch and
+the elm.json version is unpublished. It will automatically
+create a tag in github and run publish.
 
-Use this template to bootstrap the creation of a JavaScript action.:rocket:
+This is nice because you can make sure your CI is passing before
+the finalizing the git tag and Elm package release.
 
-This template includes compilication support, tests, a validation workflow, publishing, and versioning guidance.  
+Note: this action will entirely skip publishing if you haven't yet published a release.
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+So you'll need to do the first release manually. Otherwise there would be a risk of accidentally
+pushing version 1.0.0 before you're ready to publish.
 
-## Create an action from this template
+This action only publishes on the master branch. So a good workflow is to change versions on a branch, and
+then once you merge that branch the new release will happen as soon as your CI finishes. Or if your CI fails,
+you'll get a chance to fix it before the release goes out.
 
-Click the `Use this Template` and provide the new repo details for your action
+## Example Workflow Setup
 
-## Code in Master
 
-Install the dependencies  
-```bash
-$ npm install
+```yml
+name: Elm Actions
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  # define other jobs here, like test, etc.
+
+
+  publish-elm-package:
+    needs: [test, lint, validate-package] # make sure all your other jobs succeed before trying to publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 13
+        uses: actions/setup-node@v1
+        with:
+          node-version: 13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - uses: actions/cache@v1
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm--home-${{ hashFiles('**/elm.json') }}
+      - run: npm ci
+      - run: npx --no-install elm make --output /dev/null && cd examples && npx --no-install elm make src/*.elm --output /dev/null && cd ..
+      - uses: dillonkearns/elm-publish-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
-
-Build the typescript and package it for distribution
-```bash
-$ npm run build && npm run pack
-```
-
-Run the tests :heavy_check_mark:  
-```bash
-$ npm test
-
- PASS  ./index.test.js
-  ✓ throws invalid number (3ms)
-  ✓ wait 500 ms (504ms)
-  ✓ test runs (95ms)
-
-...
-```
-
-## Change action.yml
-
-The action.yml contains defines the inputs and output for your action.
-
-Update the action.yml with your name, description, inputs and outputs for your action.
-
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-import * as core from '@actions/core';
-...
-
-async function run() {
-  try { 
-      ...
-  } 
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Publish to a distribution branch
-
-Actions are run from GitHub repos so we will checkin the packed dist folder. 
-
-Then run [ncc](https://github.com/zeit/ncc) and push the results:
-```bash
-$ npm run pack
-$ git add dist
-$ git commit -a -m "prod dependencies"
-$ git push origin releases/v1
-```
-
-Your action is now published! :rocket: 
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing `./` in a workflow in your repo (see [test.yml](.github/workflows/test.yml)])
-
-```yaml
-uses: ./
-with:
-  milliseconds: 1000
-```
-
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
-
-## Usage:
-
-After testing you can [create a v1 tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and latest V1 action
