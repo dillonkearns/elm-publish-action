@@ -29,7 +29,6 @@ async function run(): Promise<void> {
       core.info(
         "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
       )
-      return
     } else if (publishedVersions.length === 0) {
       core.info(
         `I couldn't find this package in the Elm package repository (see ${releasesUrl}).`
@@ -37,10 +36,7 @@ async function run(): Promise<void> {
       core.info(
         "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
       )
-      return
-    }
-
-    if (publishedVersions.includes(currentElmJsonVersion)) {
+    } else if (publishedVersions.includes(currentElmJsonVersion)) {
       core.info(
         "This Elm version has already been published.\n\nJust run `elm bump` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!"
       )
