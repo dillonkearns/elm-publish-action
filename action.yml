@@ -1,5 +1,5 @@
 name: 'Elm Actions'
-description: 'Publish Elm package if the current version is unpublished.'
+description: 'Publish Elm package from the master branch if the current version is unpublished.'
 author: 'Dillon Kearns'
 inputs:
   github-token:
