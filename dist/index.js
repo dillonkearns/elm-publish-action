@@ -7295,6 +7295,7 @@ function run() {
                     core.debug('Found NO TAG - trying to create tag');
                     yield createAnnotatedTag(elmVersion);
                     core.debug('Tag create function succeeded. Checking working directory for changes.');
+                    yield exec_1.exec('git checkout package-lock.json');
                     yield exec_1.exec('git diff --exit-code');
                     core.debug('No changes... publishing');
                     yield exec_1.exec('npx --no-install elm publish');
