@@ -44,7 +44,9 @@ async function run(): Promise<void> {
         undefined,
         options
       )
-      if (status === 0 && /-- NO TAG --/.test(publishOutput)) {
+      if (status === 0) {
+        // tag already existed -- no need to call publish
+      } else if (/-- NO TAG --/.test(publishOutput)) {
         createAnnotatedTag(elmVersion)
         await exec('npx --no-install elm publish')
       } else {
