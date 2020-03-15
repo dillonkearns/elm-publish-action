@@ -14,20 +14,36 @@ const octokit = new github.GitHub(gitHubToken)
 async function run(): Promise<void> {
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
+    const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
 
-    core.debug(
-      `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
-    )
     const versionsResponse = await axios.get(
       `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
     )
-    const elmVersion = JSON.parse(tools.getFile('elm.json')).version
-
-    core.debug(`elmVersion ${elmVersion}`)
+    const publishedVersions = Object.keys(versionsResponse.data)
+    const currentElmJsonVersion = JSON.parse(tools.getFile('elm.json')).version
+    core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
     core.debug(`versionsResponse ${versionsResponse}`)
-    core.debug(`Version published ${versionsResponse.data[elmVersion]}`)
-    if (Object.keys(versionsResponse.data).includes(elmVersion)) {
-      core.debug(`This Elm version has already been published.`)
+
+    if (currentElmJsonVersion === '1.0.0') {
+      core.info('The version in elm.json is at 1.0.0.')
+      core.info(
+        "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
+      )
+      return
+    } else if (publishedVersions.length === 0) {
+      core.info(
+        `I couldn't find this package in the Elm package repository (see ${releasesUrl}).`
+      )
+      core.info(
+        "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
+      )
+      return
+    }
+
+    if (publishedVersions.includes(currentElmJsonVersion)) {
+      core.info(
+        "This Elm version has already been published.\n\nJust run `elm bump` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!"
+      )
     } else {
       const options = {
         listeners: {
@@ -39,26 +55,25 @@ async function run(): Promise<void> {
           }
         }
       }
-      core.debug('running command 1')
       let status = await exec('npx --no-install elm publish', undefined, {
         ...options,
         ignoreReturnCode: true
       })
-      core.debug('finished command 1 with no error')
       if (status === 0) {
-        core.debug('Already published successfully!')
+        core.info(
+          `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`
+        )
         // tag already existed -- no need to call publish
       } else if (/-- NO TAG --/.test(publishOutput)) {
-        core.debug('Found NO TAG - trying to create tag')
-        await createAnnotatedTag(octokit, elmVersion)
-        core.debug(
-          'Tag create function succeeded. Checking working directory for changes.'
-        )
-        await exec('git checkout package-lock.json')
-        await exec('git diff --exit-code')
+        core.startGroup(`Creating git tag`)
+        await createAnnotatedTag(octokit, currentElmJsonVersion)
+        core.info(`Created git tag ${currentElmJsonVersion}`)
+        core.endGroup()
         core.debug('No changes... publishing')
         await exec('npx --no-install elm publish')
-        core.debug('Published successfully.')
+        core.info(
+          `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`
+        )
       } else {
         core.setFailed(publishOutput)
       }
@@ -66,6 +81,10 @@ async function run(): Promise<void> {
   } catch (error) {
     core.setFailed(error.message)
   }
+}
+
+function publishedUrl(repoWithOwner: string, version: string) {
+  return `https://package.elm-lang.org/packages/${repoWithOwner}/${version}/`
 }
 
 run()

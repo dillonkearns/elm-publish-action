@@ -7257,21 +7257,32 @@ const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
 const tools = new actions_toolkit_1.Toolkit();
+const git_helpers_1 = __webpack_require__(932);
+let publishOutput = '';
 const gitHubToken = core.getInput('github-token');
 const octokit = new github.GitHub(gitHubToken);
-let publishOutput = '';
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
-            core.debug(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`);
+            const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`;
             const versionsResponse = yield axios_1.default.get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`);
-            const elmVersion = JSON.parse(tools.getFile('elm.json')).version;
-            core.debug(`elmVersion ${elmVersion}`);
+            const publishedVersions = Object.keys(versionsResponse.data);
+            const currentElmJsonVersion = JSON.parse(tools.getFile('elm.json')).version;
+            core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`);
             core.debug(`versionsResponse ${versionsResponse}`);
-            core.debug(`Version published ${versionsResponse.data[elmVersion]}`);
-            if (Object.keys(versionsResponse.data).includes(elmVersion)) {
-                core.debug(`This Elm version has already been published.`);
+            if (currentElmJsonVersion === '1.0.0') {
+                core.info('The version in elm.json is at 1.0.0.');
+                core.info("This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!");
+                return;
+            }
+            else if (publishedVersions.length === 0) {
+                core.info(`I couldn't find this package in the Elm package repository (see ${releasesUrl}).`);
+                core.info("This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!");
+                return;
+            }
+            if (publishedVersions.includes(currentElmJsonVersion)) {
+                core.info("This Elm version has already been published.\n\nJust run `elm bump` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!");
             }
             else {
                 const options = {
@@ -7284,22 +7295,19 @@ function run() {
                         }
                     }
                 };
-                core.debug('running command 1');
                 let status = yield exec_1.exec('npx --no-install elm publish', undefined, Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
-                core.debug('finished command 1 with no error');
                 if (status === 0) {
-                    core.debug('Already published successfully!');
+                    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
                     // tag already existed -- no need to call publish
                 }
                 else if (/-- NO TAG --/.test(publishOutput)) {
-                    core.debug('Found NO TAG - trying to create tag');
-                    yield createAnnotatedTag(elmVersion);
-                    core.debug('Tag create function succeeded. Checking working directory for changes.');
-                    yield exec_1.exec('git checkout package-lock.json');
-                    yield exec_1.exec('git diff --exit-code');
+                    core.startGroup(`Creating git tag`);
+                    yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
+                    core.info(`Created git tag ${currentElmJsonVersion}`);
+                    core.endGroup();
                     core.debug('No changes... publishing');
                     yield exec_1.exec('npx --no-install elm publish');
-                    core.debug('Published successfully.');
+                    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
                 }
                 else {
                     core.setFailed(publishOutput);
@@ -7311,30 +7319,8 @@ function run() {
         }
     });
 }
-function createAnnotatedTag(tag) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        const [repoOwner, repoName] = ((_a = process.env['GITHUB_REPOSITORY']) === null || _a === void 0 ? void 0 : _a.split('/')) || ['', ''];
-        if (!process.env['GITHUB_SHA']) {
-            throw "Couldn't find GITHUB_SHA.";
-        }
-        const createTagResponse = yield octokit.git.createTag({
-            owner: repoOwner,
-            repo: repoName,
-            tag: tag,
-            message: 'new release',
-            object: process.env['GITHUB_SHA'],
-            type: 'commit'
-        });
-        core.debug(`createTagResponse: ${createTagResponse}`);
-        const createRefResponse = yield octokit.git.createRef({
-            owner: repoOwner,
-            repo: repoName,
-            ref: `refs/tags/${tag}`,
-            sha: process.env['GITHUB_SHA']
-        });
-        core.debug(`createRefResponse: ${createRefResponse}`);
-    });
+function publishedUrl(repoWithOwner, version) {
+    return `https://package.elm-lang.org/packages/${repoWithOwner}/${version}/`;
 }
 run();
 
@@ -40945,7 +40931,48 @@ function hasNextPage (link) {
 /***/ }),
 /* 930 */,
 /* 931 */,
-/* 932 */,
+/* 932 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+function createAnnotatedTag(octokit, tag) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const [repoOwner, repoName] = ((_a = process.env['GITHUB_REPOSITORY']) === null || _a === void 0 ? void 0 : _a.split('/')) || ['', ''];
+        if (!process.env['GITHUB_SHA']) {
+            throw "Couldn't find GITHUB_SHA.";
+        }
+        const createTagResponse = yield octokit.git.createTag({
+            owner: repoOwner,
+            repo: repoName,
+            tag: tag,
+            message: 'new release',
+            object: process.env['GITHUB_SHA'],
+            type: 'commit'
+        });
+        const createRefResponse = yield octokit.git.createRef({
+            owner: repoOwner,
+            repo: repoName,
+            ref: `refs/tags/${tag}`,
+            sha: process.env['GITHUB_SHA']
+        });
+    });
+}
+exports.createAnnotatedTag = createAnnotatedTag;
+
+
+/***/ }),
 /* 933 */,
 /* 934 */,
 /* 935 */,
