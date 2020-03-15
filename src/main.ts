@@ -4,11 +4,12 @@ import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
 const tools = new Toolkit()
+import {createAnnotatedTag} from './git-helpers'
+
+let publishOutput = ''
 
 const gitHubToken = core.getInput('github-token')
 const octokit = new github.GitHub(gitHubToken)
-
-let publishOutput = ''
 
 async function run(): Promise<void> {
   try {
@@ -49,7 +50,7 @@ async function run(): Promise<void> {
         // tag already existed -- no need to call publish
       } else if (/-- NO TAG --/.test(publishOutput)) {
         core.debug('Found NO TAG - trying to create tag')
-        await createAnnotatedTag(elmVersion)
+        await createAnnotatedTag(octokit, elmVersion)
         core.debug(
           'Tag create function succeeded. Checking working directory for changes.'
         )
@@ -65,36 +66,6 @@ async function run(): Promise<void> {
   } catch (error) {
     core.setFailed(error.message)
   }
-}
-
-async function createAnnotatedTag(tag: string): Promise<void> {
-  const [repoOwner, repoName] = process.env['GITHUB_REPOSITORY']?.split(
-    '/'
-  ) || ['', '']
-
-  if (!process.env['GITHUB_SHA']) {
-    throw "Couldn't find GITHUB_SHA."
-  }
-
-  const createTagResponse = await octokit.git.createTag({
-    owner: repoOwner,
-    repo: repoName,
-    tag: tag,
-    message: 'new release',
-    object: process.env['GITHUB_SHA'],
-    type: 'commit'
-  })
-
-  core.debug(`createTagResponse: ${createTagResponse}`)
-
-  const createRefResponse = await octokit.git.createRef({
-    owner: repoOwner,
-    repo: repoName,
-    ref: `refs/tags/${tag}`,
-    sha: process.env['GITHUB_SHA']
-  })
-
-  core.debug(`createRefResponse: ${createRefResponse}`)
 }
 
 run()
