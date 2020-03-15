@@ -24,7 +24,7 @@ async function run(): Promise<void> {
     if (Object.keys(versionsResponse.data).includes(elmVersion)) {
       core.debug(`This Elm version has already been published.`)
     } else {
-      exec('npx --no-install elm publish')
+      await exec('npx --no-install elm publish')
     }
 
     // core.startGroup('Generate elm package docs')

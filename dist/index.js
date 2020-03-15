@@ -6997,7 +6997,7 @@ function run() {
                 core.debug(`This Elm version has already been published.`);
             }
             else {
-                exec_1.exec('npx --no-install elm publish');
+                yield exec_1.exec('npx --no-install elm publish');
             }
             // core.startGroup('Generate elm package docs')
             // await exec('npx elm make --docs docs.json')
