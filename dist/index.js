@@ -7277,12 +7277,12 @@ function run() {
                 const options = {
                     // failOnStdErr: false,
                     listeners: {
-                        stdout: ((data) => {
+                        stdout: (data) => {
                             publishOutput += data.toString();
-                        }),
-                        stderr: ((data) => {
+                        },
+                        stderr: (data) => {
                             publishOutput += data.toString();
-                        })
+                        }
                     }
                 };
                 let status = yield exec_1.exec('npx --no-install elm publish', undefined, options);
