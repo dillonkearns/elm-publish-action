@@ -7294,7 +7294,9 @@ function run() {
                 else if (/-- NO TAG --/.test(publishOutput)) {
                     core.debug('Found NO TAG - trying to create tag');
                     yield createAnnotatedTag(elmVersion);
-                    core.debug('Tag create function succeeded. Calling publish again.');
+                    core.debug('Tag create function succeeded. Checking working directory for changes.');
+                    yield exec_1.exec('git diff --exit-code');
+                    core.debug('No changes... publishing');
                     yield exec_1.exec('npx --no-install elm publish');
                     core.debug('Published successfully.');
                 }
