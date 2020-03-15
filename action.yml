@@ -1,4 +1,4 @@
-name: 'Elm Actions'
+name: 'Elm Publish'
 description: 'Publish Elm package from the master branch if the current version is unpublished.'
 author: 'Dillon Kearns'
 inputs:
