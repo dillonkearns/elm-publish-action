@@ -1,16 +1,26 @@
 # elm-publish-action
 
-Publishes elm releases if you're on the master branch and
+Publishes your elm package if you're on the master branch and
 the elm.json version is unpublished. It will automatically
 create a tag in github and run publish.
+
+This action is idempotent, so you can run this as much as you want and it will always do the right thing:
+* No-op and succeed if the current version in elm.json exists in the registry (it actually fetches the published examples to check from the source of truth)
+* Try to publish otherwise
+* If it's publishable, tag and publish
+* If it's not publishable, don't tag, just show failure message in CI output
 
 This is nice because you can make sure your CI is passing before
 the finalizing the git tag and Elm package release.
 
-Note: this action will entirely skip publishing if you haven't yet published a release.
+## Initial publish must be done manually
+
+This action will entirely skip publishing if you haven't yet published a release.
 
 So you'll need to do the first release manually. Otherwise there would be a risk of accidentally
 pushing version 1.0.0 before you're ready to publish.
+
+## Suggested workflow
 
 This action only publishes on the master branch. So a good workflow is to change versions on a branch, and
 then once you merge that branch the new release will happen as soon as your CI finishes. Or if your CI fails,
