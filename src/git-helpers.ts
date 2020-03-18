@@ -21,7 +21,6 @@ export async function createAnnotatedTag(
     object: process.env['GITHUB_SHA'],
     type: 'commit'
   })
-  core.info(`createTagResponse ${JSON.stringify(createTagResponse)}`)
 
   const createRefResponse = await octokit.git.createRef({
     owner: repoOwner,
@@ -29,12 +28,4 @@ export async function createAnnotatedTag(
     ref: `refs/tags/${tag}`,
     sha: process.env['GITHUB_SHA']
   })
-  core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`)
-  core.info('Star waiting')
-  // await timeout(3000)
-  core.info('Done waiting')
-}
-
-function timeout(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
 }
