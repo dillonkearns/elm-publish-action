@@ -21,6 +21,7 @@ export async function createAnnotatedTag(
     object: process.env['GITHUB_SHA'],
     type: 'commit'
   })
+  core.info(`createTagResponse ${JSON.stringify(createTagResponse)}`)
 
   const createRefResponse = await octokit.git.createRef({
     owner: repoOwner,
@@ -28,4 +29,5 @@ export async function createAnnotatedTag(
     ref: `refs/tags/${tag}`,
     sha: process.env['GITHUB_SHA']
   })
+  core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`)
 }
