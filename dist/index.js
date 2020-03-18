@@ -7257,6 +7257,7 @@ const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
 const tools = new actions_toolkit_1.Toolkit();
+const git_helpers_1 = __webpack_require__(932);
 let publishOutput = '';
 const gitHubToken = core.getInput('github-token');
 const octokit = new github.GitHub(gitHubToken);
@@ -7302,19 +7303,19 @@ function run() {
                     // tag already existed -- no need to call publish
                 }
                 else if (/-- NO TAG --/.test(publishOutput)) {
-                    // core.startGroup(`Creating git tag`)
-                    // await createAnnotatedTag(octokit, currentElmJsonVersion)
-                    yield exec_1.exec(`git`, [
-                        'tag',
-                        '-a',
-                        currentElmJsonVersion,
-                        '-m',
-                        'new release'
-                    ]);
-                    yield exec_1.exec(`git`, ['push', 'origin', currentElmJsonVersion]);
+                    core.startGroup(`Creating git tag`);
+                    yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
+                    // await exec(`git`, [
+                    //   'tag',
+                    //   '-a',
+                    //   currentElmJsonVersion,
+                    //   '-m',
+                    //   'new release'
+                    // ])
+                    // await exec(`git`, ['push', 'origin', currentElmJsonVersion])
                     yield exec_1.exec(`./node_modules/.bin/elm publish`);
                     // core.info(`Created git tag ${currentElmJsonVersion}`)
-                    // core.endGroup()
+                    core.endGroup();
                     // core.debug('No changes... publishing')
                     // await exec('npx --no-install elm publish')
                     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
@@ -40941,7 +40942,64 @@ function hasNextPage (link) {
 /***/ }),
 /* 930 */,
 /* 931 */,
-/* 932 */,
+/* 932 */
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const core = __importStar(__webpack_require__(470));
+function createAnnotatedTag(octokit, tag) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const [repoOwner, repoName] = ((_a = process.env['GITHUB_REPOSITORY']) === null || _a === void 0 ? void 0 : _a.split('/')) || ['', ''];
+        if (!process.env['GITHUB_SHA']) {
+            throw "Couldn't find GITHUB_SHA.";
+        }
+        const createTagResponse = yield octokit.git.createTag({
+            owner: repoOwner,
+            repo: repoName,
+            tag: tag,
+            message: 'new release',
+            object: process.env['GITHUB_SHA'],
+            type: 'commit'
+        });
+        core.info(`createTagResponse ${JSON.stringify(createTagResponse)}`);
+        const createRefResponse = yield octokit.git.createRef({
+            owner: repoOwner,
+            repo: repoName,
+            ref: `refs/tags/${tag}`,
+            sha: process.env['GITHUB_SHA']
+        });
+        core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`);
+        core.info('Star waiting');
+        yield timeout(3000);
+        core.info('Done waiting');
+    });
+}
+exports.createAnnotatedTag = createAnnotatedTag;
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+/***/ }),
 /* 933 */,
 /* 934 */,
 /* 935 */,

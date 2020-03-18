@@ -30,4 +30,11 @@ export async function createAnnotatedTag(
     sha: process.env['GITHUB_SHA']
   })
   core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`)
+  core.info('Star waiting')
+  await timeout(3000)
+  core.info('Done waiting')
+}
+
+function timeout(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
