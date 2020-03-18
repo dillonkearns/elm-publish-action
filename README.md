@@ -30,6 +30,19 @@ you'll get a chance to fix it before the release goes out.
 
 ![Screenshot 2](https://raw.githubusercontent.com/dillonkearns/elm-publish-action/master/screenshots/2.png)
 
+## Path to elm compiler
+
+You can pass in an input like this:
+
+```
+- uses: dillonkearns/elm-publish-action@master
+with:
+  github-token: ${{ secrets.GITHUB_TOKEN }}
+  path-to-elm: ./node_modules/.bin/elm
+```
+
+And it will use the supplied path. Otherwise, it will use whatever elm binary it finds on the PATH.
+
 ## Example Workflow Setup
 
 
@@ -74,4 +87,5 @@ jobs:
       - uses: dillonkearns/elm-publish-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-elm: ./node_modules/.bin/elm
 ```
