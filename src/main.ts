@@ -17,6 +17,7 @@ async function run(): Promise<void> {
   if (!pathToCompiler) {
     pathToCompiler = await io.which('elm', true)
   }
+  await exec(pathToCompiler, [`--version`])
 
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''

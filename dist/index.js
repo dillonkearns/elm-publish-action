@@ -7268,6 +7268,7 @@ function run() {
         if (!pathToCompiler) {
             pathToCompiler = yield io.which('elm', true);
         }
+        yield exec_1.exec(pathToCompiler, [`--version`]);
         try {
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const githubRef = process.env['GITHUB_REF'] || '';
