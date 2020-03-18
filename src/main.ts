@@ -80,6 +80,7 @@ async function run(): Promise<void> {
         //   'new release'
         // ])
         // await exec(`git`, ['push', 'origin', currentElmJsonVersion])
+        await exec(`git fetch --tags`)
         await exec(`./node_modules/.bin/elm publish`)
         // core.info(`Created git tag ${currentElmJsonVersion}`)
         core.endGroup()

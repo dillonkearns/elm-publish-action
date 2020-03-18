@@ -7313,6 +7313,7 @@ function run() {
                     //   'new release'
                     // ])
                     // await exec(`git`, ['push', 'origin', currentElmJsonVersion])
+                    yield exec_1.exec(`git fetch --tags`);
                     yield exec_1.exec(`./node_modules/.bin/elm publish`);
                     // core.info(`Created git tag ${currentElmJsonVersion}`)
                     core.endGroup();
@@ -40989,7 +40990,7 @@ function createAnnotatedTag(octokit, tag) {
         });
         core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`);
         core.info('Star waiting');
-        yield timeout(3000);
+        // await timeout(3000)
         core.info('Done waiting');
     });
 }

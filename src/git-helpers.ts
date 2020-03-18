@@ -31,7 +31,7 @@ export async function createAnnotatedTag(
   })
   core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`)
   core.info('Star waiting')
-  await timeout(3000)
+  // await timeout(3000)
   core.info('Done waiting')
 }
 
