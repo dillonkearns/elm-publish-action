@@ -5,6 +5,9 @@ inputs:
   github-token:
     description: "Token provided by GitHub"
     required: true
+  path-to-elm:
+    description: "Path to Elm compiler to use instead of looking in the PATH."
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'

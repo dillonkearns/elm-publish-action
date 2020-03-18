@@ -5,6 +5,7 @@ import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
 const tools = new Toolkit()
 import {createAnnotatedTag} from './git-helpers'
+import * as io from '@actions/io'
 
 let publishOutput = ''
 
@@ -12,6 +13,11 @@ const gitHubToken = core.getInput('github-token')
 const octokit = new github.GitHub(gitHubToken)
 
 async function run(): Promise<void> {
+  let pathToCompiler = core.getInput('path-to-elm')
+  if (!pathToCompiler) {
+    pathToCompiler = await io.which('elm', true)
+  }
+
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const githubRef = process.env['GITHUB_REF'] || ''
@@ -60,7 +66,7 @@ async function run(): Promise<void> {
           }
         }
       }
-      let status = await exec('npx --no-install elm publish', undefined, {
+      let status = await exec(pathToCompiler, ['publish'], {
         ...options,
         ignoreReturnCode: true
       })
@@ -73,11 +79,10 @@ async function run(): Promise<void> {
         core.startGroup(`Creating git tag`)
         await createAnnotatedTag(octokit, currentElmJsonVersion)
         await exec(`git fetch --tags`)
-        await exec(`./node_modules/.bin/elm publish`)
         core.info(`Created git tag ${currentElmJsonVersion}`)
         core.endGroup()
-        // core.debug('No changes... publishing')
-        // await exec('npx --no-install elm publish')
+
+        await exec(pathToCompiler, [`publish`])
 
         core.info(
           `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`

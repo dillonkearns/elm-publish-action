@@ -7258,11 +7258,16 @@ const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
 const tools = new actions_toolkit_1.Toolkit();
 const git_helpers_1 = __webpack_require__(932);
+const io = __importStar(__webpack_require__(1));
 let publishOutput = '';
 const gitHubToken = core.getInput('github-token');
 const octokit = new github.GitHub(gitHubToken);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        let pathToCompiler = core.getInput('path-to-elm');
+        if (!pathToCompiler) {
+            pathToCompiler = yield io.which('elm', true);
+        }
         try {
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const githubRef = process.env['GITHUB_REF'] || '';
@@ -7297,7 +7302,7 @@ function run() {
                         }
                     }
                 };
-                let status = yield exec_1.exec('npx --no-install elm publish', undefined, Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
+                let status = yield exec_1.exec(pathToCompiler, ['publish'], Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
                 if (status === 0) {
                     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
                     // tag already existed -- no need to call publish
@@ -7305,20 +7310,10 @@ function run() {
                 else if (/-- NO TAG --/.test(publishOutput)) {
                     core.startGroup(`Creating git tag`);
                     yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
-                    // await exec(`git`, [
-                    //   'tag',
-                    //   '-a',
-                    //   currentElmJsonVersion,
-                    //   '-m',
-                    //   'new release'
-                    // ])
-                    // await exec(`git`, ['push', 'origin', currentElmJsonVersion])
                     yield exec_1.exec(`git fetch --tags`);
-                    yield exec_1.exec(`./node_modules/.bin/elm publish`);
-                    // core.info(`Created git tag ${currentElmJsonVersion}`)
+                    core.info(`Created git tag ${currentElmJsonVersion}`);
                     core.endGroup();
-                    // core.debug('No changes... publishing')
-                    // await exec('npx --no-install elm publish')
+                    yield exec_1.exec(pathToCompiler, [`publish`]);
                     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
                 }
                 else {
@@ -40944,7 +40939,7 @@ function hasNextPage (link) {
 /* 930 */,
 /* 931 */,
 /* 932 */
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(__unusedmodule, exports) {
 
 "use strict";
 
@@ -40957,15 +40952,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const core = __importStar(__webpack_require__(470));
 function createAnnotatedTag(octokit, tag) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -40981,23 +40968,15 @@ function createAnnotatedTag(octokit, tag) {
             object: process.env['GITHUB_SHA'],
             type: 'commit'
         });
-        core.info(`createTagResponse ${JSON.stringify(createTagResponse)}`);
         const createRefResponse = yield octokit.git.createRef({
             owner: repoOwner,
             repo: repoName,
             ref: `refs/tags/${tag}`,
             sha: process.env['GITHUB_SHA']
         });
-        core.info(`createRefResponse ${JSON.stringify(createRefResponse)}`);
-        core.info('Star waiting');
-        // await timeout(3000)
-        core.info('Done waiting');
     });
 }
 exports.createAnnotatedTag = createAnnotatedTag;
-function timeout(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 
 /***/ }),
