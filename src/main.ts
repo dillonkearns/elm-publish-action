@@ -70,12 +70,22 @@ async function run(): Promise<void> {
         )
         // tag already existed -- no need to call publish
       } else if (/-- NO TAG --/.test(publishOutput)) {
-        core.startGroup(`Creating git tag`)
-        await createAnnotatedTag(octokit, currentElmJsonVersion)
-        core.info(`Created git tag ${currentElmJsonVersion}`)
-        core.endGroup()
-        core.debug('No changes... publishing')
-        await exec('npx --no-install elm publish')
+        // core.startGroup(`Creating git tag`)
+        // await createAnnotatedTag(octokit, currentElmJsonVersion)
+        await exec(`git`, [
+          'tag',
+          '-a',
+          currentElmJsonVersion,
+          '-m',
+          'new release'
+        ])
+        await exec(`git`, ['push', 'origin', currentElmJsonVersion])
+        await exec(`./node_modules/.bin/elm publish`)
+        // core.info(`Created git tag ${currentElmJsonVersion}`)
+        // core.endGroup()
+        // core.debug('No changes... publishing')
+        // await exec('npx --no-install elm publish')
+
         core.info(
           `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`
         )
