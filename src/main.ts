@@ -3,11 +3,9 @@ import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
-const tools = new Toolkit()
 import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
 import * as io from '@actions/io'
-
-let publishOutput = ''
+const tools = new Toolkit()
 
 const gitHubToken = core.getInput('github-token')
 const octokit = new github.GitHub(gitHubToken)
@@ -26,79 +24,96 @@ async function run(): Promise<void> {
 
     const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
 
-    const versionsResponse = await axios.get(
-      `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
-    )
-    const publishedVersions = Object.keys(versionsResponse.data)
-    const currentElmJsonVersion = JSON.parse(tools.getFile('elm.json')).version
+    let publishedVersions: string[] = []
+    const preventPublishReasons: string[] = []
+    try {
+      const versionsResponse = await axios.get(
+        `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
+      )
+      core.debug(`versionsResponse ${versionsResponse}`)
+      publishedVersions = Object.keys(versionsResponse.data)
+    } catch (packageFetchError) {
+      preventPublishReasons.push(
+        `I couldn't find this package in the Elm package server (see ${releasesUrl}). This either means the package server is down, or you haven't published it yet.`
+      )
+      packageFetchError
+    }
+    const currentElmJsonVersion: string = JSON.parse(tools.getFile('elm.json'))
+      .version
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
-    core.debug(`versionsResponse ${versionsResponse}`)
 
     if (githubRef !== `refs/heads/${defaultBranch}`) {
-      core.info(
-        `This action only publishes from the default branch (currently set to ${defaultBranch}). Skipping checks.`
+      preventPublishReasons.push(
+        `This action only publishes from the default branch (currently set to ${defaultBranch}).`
       )
-    } else if (currentElmJsonVersion === '1.0.0') {
-      core.info('The version in elm.json is at 1.0.0.')
-      core.info(
-        "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
+    }
+    if (currentElmJsonVersion === '1.0.0') {
+      preventPublishReasons.push(
+        `The version in elm.json is at 1.0.0. This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!`
       )
-    } else if (publishedVersions.length === 0) {
-      core.info(
-        `I couldn't find this package in the Elm package repository (see ${releasesUrl}).`
+    }
+    if (publishedVersions.length === 0) {
+      preventPublishReasons.push(
+        `I couldn't find this package in the Elm package repository (see ${releasesUrl}). This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!`
       )
-      core.info(
-        "This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!"
-      )
-    } else if (publishedVersions.includes(currentElmJsonVersion)) {
-      core.info(
+    }
+    if (publishedVersions.includes(currentElmJsonVersion)) {
+      preventPublishReasons.push(
         `The current version in your elm.json has already been published: ${publishedUrl(
           githubRepo,
           currentElmJsonVersion
         )} .\n\nJust run \`elm bump\` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!`
       )
+    }
+    if (preventPublishReasons.length > 0) {
+      core.info(preventPublishReasons.join('\n'))
     } else {
-      const options = {
-        listeners: {
-          stdout: (data: Buffer) => {
-            publishOutput += data.toString()
-          },
-          stderr: (data: Buffer) => {
-            publishOutput += data.toString()
-          }
-        }
-      }
-      let status = await exec(pathToCompiler, ['publish'], {
-        ...options,
-        ignoreReturnCode: true
-      })
-      if (status === 0) {
-        core.info(
-          `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`
-        )
-        // tag already existed -- no need to call publish
-      } else if (/-- NO TAG --/.test(publishOutput)) {
-        core.startGroup(`Creating git tag`)
-        await createAnnotatedTag(octokit, currentElmJsonVersion)
-        await exec(`git fetch --tags`)
-        core.info(`Created git tag ${currentElmJsonVersion}`)
-        core.endGroup()
-
-        await exec(pathToCompiler, [`publish`])
-
-        core.info(
-          `Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`
-        )
-      } else {
-        core.setFailed(publishOutput)
-      }
+      await tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion)
     }
   } catch (error) {
     core.setFailed(error.message)
   }
 }
 
-function publishedUrl(repoWithOwner: string, version: string) {
+async function tryPublish(
+  pathToCompiler: string,
+  githubRepo: string,
+  currentElmJsonVersion: string
+): Promise<void> {
+  let publishOutput = ''
+  const options = {
+    listeners: {
+      stdout: (data: Buffer) => {
+        publishOutput += data.toString()
+      },
+      stderr: (data: Buffer) => {
+        publishOutput += data.toString()
+      }
+    }
+  }
+  const status = await exec(pathToCompiler, ['publish'], {
+    ...options,
+    ignoreReturnCode: true
+  })
+  if (status === 0) {
+    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
+    // tag already existed -- no need to call publish
+  } else if (/-- NO TAG --/.test(publishOutput)) {
+    core.startGroup(`Creating git tag`)
+    await createAnnotatedTag(octokit, currentElmJsonVersion)
+    await exec(`git fetch --tags`)
+    core.info(`Created git tag ${currentElmJsonVersion}`)
+    core.endGroup()
+
+    await exec(pathToCompiler, [`publish`])
+
+    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
+  } else {
+    core.setFailed(publishOutput)
+  }
+}
+
+function publishedUrl(repoWithOwner: string, version: string): string {
   return `https://package.elm-lang.org/packages/${repoWithOwner}/${version}/`
 }
 
