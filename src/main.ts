@@ -26,18 +26,19 @@ async function run(): Promise<void> {
 
     let publishedVersions: string[] = []
     const preventPublishReasons: string[] = []
-    try {
-      const versionsResponse = await axios.get(
-        `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
-      )
-      core.debug(`versionsResponse ${versionsResponse}`)
-      publishedVersions = Object.keys(versionsResponse.data)
-    } catch (packageFetchError) {
-      preventPublishReasons.push(
-        `I couldn't find this package in the Elm package server (see ${releasesUrl}). This either means the package server is down, or you haven't published it yet.`
-      )
-      packageFetchError
-    }
+    axios
+      .get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`)
+      .then(versionsResponse => {
+        core.debug(`versionsResponse ${versionsResponse}`)
+        publishedVersions = Object.keys(versionsResponse.data)
+      })
+      .catch(packageFetchError => {
+        core.debug(`packageFetchError ${packageFetchError}`)
+        preventPublishReasons.push(
+          `I couldn't find this package in the Elm package server (see ${releasesUrl}). This either means the package server is down, or you haven't published it yet.`
+        )
+      })
+
     const currentElmJsonVersion: string = JSON.parse(tools.getFile('elm.json'))
       .version
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
