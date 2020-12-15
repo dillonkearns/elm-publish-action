@@ -7272,14 +7272,15 @@ function run() {
         try {
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const githubRef = process.env['GITHUB_REF'] || '';
+            const defaultBranch = yield git_helpers_1.getDefaultBranch(octokit);
             const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`;
             const versionsResponse = yield axios_1.default.get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`);
             const publishedVersions = Object.keys(versionsResponse.data);
             const currentElmJsonVersion = JSON.parse(tools.getFile('elm.json')).version;
             core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`);
             core.debug(`versionsResponse ${versionsResponse}`);
-            if (!(githubRef === 'refs/heads/master' || githubRef === 'refs/heads/main')) {
-                core.info('This action only publishes from the main or master branch. Skipping checks.');
+            if (githubRef !== `refs/heads/${defaultBranch}`) {
+                core.info(`This action only publishes from the default branch (currently set to ${defaultBranch}). Skipping checks.`);
             }
             else if (currentElmJsonVersion === '1.0.0') {
                 core.info('The version in elm.json is at 1.0.0.');
@@ -40978,6 +40979,23 @@ function createAnnotatedTag(octokit, tag) {
     });
 }
 exports.createAnnotatedTag = createAnnotatedTag;
+function getDefaultBranch(octokit) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const githubRepo = process.env['GITHUB_REPOSITORY'];
+        if (githubRepo) {
+            const [owner, repo] = githubRepo.split('/');
+            const repoDetails = yield octokit.repos.get({
+                owner,
+                repo
+            });
+            return repoDetails.data.default_branch;
+        }
+        else {
+            throw new Error('Could not find GITHUB_REPOSITORY');
+        }
+    });
+}
+exports.getDefaultBranch = getDefaultBranch;
 
 
 /***/ }),
