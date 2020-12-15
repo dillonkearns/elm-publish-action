@@ -9124,7 +9124,7 @@ function run() {
                 git_helpers_1.setCommitStatus(octokit, {
                     description: `No pending publish on merge. See action output for details.`,
                     name: 'Elm Publish',
-                    state: 'pending'
+                    state: 'success'
                 });
                 core.info(preventPublishReasons.join('\n'));
             }

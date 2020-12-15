@@ -80,7 +80,7 @@ async function run(): Promise<void> {
       setCommitStatus(octokit, {
         description: `No pending publish on merge. See action output for details.`,
         name: 'Elm Publish',
-        state: 'pending'
+        state: 'success'
       })
       core.info(preventPublishReasons.join('\n'))
     } else {
