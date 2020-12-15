@@ -57,7 +57,7 @@ export async function setCommitStatus(
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const [owner, repo] = githubRepo.split('/')
-    core.info(
+    core.debug(
       `Updating status: ${JSON.stringify({
         context: params.name,
         description: params.description,
@@ -73,7 +73,8 @@ export async function setCommitStatus(
       owner,
       repo,
       sha: process.env['GITHUB_SHA'] || '',
-      state: params.state
+      state: params.state,
+      target_url: 'https://elm-lang.org/news/0.14'
     })
     core.debug(`Updated build status: ${params.state}`)
   } catch (error) {

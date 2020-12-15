@@ -45128,7 +45128,7 @@ function setCommitStatus(octokit, params) {
         try {
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const [owner, repo] = githubRepo.split('/');
-            core.info(`Updating status: ${JSON.stringify({
+            core.debug(`Updating status: ${JSON.stringify({
                 context: params.name,
                 description: params.description,
                 owner,
@@ -45142,7 +45142,8 @@ function setCommitStatus(octokit, params) {
                 owner,
                 repo,
                 sha: process.env['GITHUB_SHA'] || '',
-                state: params.state
+                state: params.state,
+                target_url: 'https://elm-lang.org/news/0.14'
             });
             core.debug(`Updated build status: ${params.state}`);
         }
