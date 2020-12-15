@@ -7278,8 +7278,8 @@ function run() {
             const currentElmJsonVersion = JSON.parse(tools.getFile('elm.json')).version;
             core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`);
             core.debug(`versionsResponse ${versionsResponse}`);
-            if (githubRef !== 'refs/heads/master') {
-                core.info('This action only publishes from the master branch. Skipping checks.');
+            if (!(githubRef === 'refs/heads/master' || githubRef === 'refs/heads/main')) {
+                core.info('This action only publishes from the main or master branch. Skipping checks.');
             }
             else if (currentElmJsonVersion === '1.0.0') {
                 core.info('The version in elm.json is at 1.0.0.');
