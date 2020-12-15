@@ -57,6 +57,16 @@ export async function setCommitStatus(
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const [owner, repo] = githubRepo.split('/')
+    core.info(
+      `Updating status: ${JSON.stringify({
+        context: params.name,
+        description: params.description,
+        owner,
+        repo,
+        sha: process.env['GITHUB_SHA'] || '',
+        state: params.state
+      })}`
+    )
     await octokit.repos.createCommitStatus({
       context: params.name,
       description: params.description,
