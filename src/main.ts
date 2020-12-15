@@ -4,7 +4,7 @@ import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
 const tools = new Toolkit()
-import {createAnnotatedTag} from './git-helpers'
+import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
 import * as io from '@actions/io'
 
 let publishOutput = ''
@@ -22,6 +22,7 @@ async function run(): Promise<void> {
   try {
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const githubRef = process.env['GITHUB_REF'] || ''
+    const defaultBranch = await getDefaultBranch(octokit)
 
     const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`
 
@@ -33,11 +34,9 @@ async function run(): Promise<void> {
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
     core.debug(`versionsResponse ${versionsResponse}`)
 
-    if (
-      !(githubRef === 'refs/heads/master' || githubRef === 'refs/heads/main')
-    ) {
+    if (githubRef !== `refs/heads/${defaultBranch}`) {
       core.info(
-        'This action only publishes from the main or master branch. Skipping checks.'
+        `This action only publishes from the default branch (currently set to ${defaultBranch}). Skipping checks.`
       )
     } else if (currentElmJsonVersion === '1.0.0') {
       core.info('The version in elm.json is at 1.0.0.')

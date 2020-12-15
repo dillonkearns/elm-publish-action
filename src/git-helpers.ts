@@ -29,3 +29,19 @@ export async function createAnnotatedTag(
     sha: process.env['GITHUB_SHA']
   })
 }
+
+export async function getDefaultBranch(
+  octokit: github.GitHub
+): Promise<string> {
+  const githubRepo = process.env['GITHUB_REPOSITORY']
+  if (githubRepo) {
+    const [owner, repo] = githubRepo.split('/')
+    const repoDetails = await octokit.repos.get({
+      owner,
+      repo
+    })
+    return repoDetails.data.default_branch
+  } else {
+    throw new Error('Could not find GITHUB_REPOSITORY')
+  }
+}
