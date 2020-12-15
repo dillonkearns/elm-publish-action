@@ -3,12 +3,19 @@ import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
-import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
+import {
+  createAnnotatedTag,
+  getDefaultBranch,
+  setCommitStatus
+} from './git-helpers'
 import * as io from '@actions/io'
+import {GitHub} from '@actions/github/lib/utils'
+
+type Octokit = InstanceType<typeof GitHub>
 const tools = new Toolkit()
 
 const gitHubToken = core.getInput('github-token')
-const octokit = new github.GitHub(gitHubToken)
+const octokit = github.getOctokit(gitHubToken)
 
 async function run(): Promise<void> {
   let pathToCompiler = core.getInput('path-to-elm')
@@ -43,11 +50,6 @@ async function run(): Promise<void> {
       .version
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
 
-    if (githubRef !== `refs/heads/${defaultBranch}`) {
-      preventPublishReasons.push(
-        `This action only publishes from the default branch (currently set to ${defaultBranch}).`
-      )
-    }
     if (currentElmJsonVersion === '1.0.0') {
       preventPublishReasons.push(
         `The version in elm.json is at 1.0.0. This action only runs for packages that already have an initial version published. Please run elm publish manually to publish your initial version when you're ready!`
@@ -66,7 +68,22 @@ async function run(): Promise<void> {
         )} .\n\nJust run \`elm bump\` when you're ready for a new release and then push your updated elm.json file. Then this action will publish it for you!`
       )
     }
+    if (githubRef !== `refs/heads/${defaultBranch}`) {
+      if (preventPublishReasons.length === 0) {
+        createPendingPublishStatus(octokit, pathToCompiler)
+      }
+      preventPublishReasons.push(
+        `This action only publishes from the default branch (currently set to ${defaultBranch}).`
+      )
+    }
     if (preventPublishReasons.length > 0) {
+      setCommitStatus(octokit, {
+        description: `No pending publish on merge.\n\n${preventPublishReasons.join(
+          '\n'
+        )}`,
+        name: 'Elm Publish',
+        state: 'pending'
+      })
       core.info(preventPublishReasons.join('\n'))
     } else {
       await tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion)
@@ -116,6 +133,53 @@ async function tryPublish(
 
 function publishedUrl(repoWithOwner: string, version: string): string {
   return `https://package.elm-lang.org/packages/${repoWithOwner}/${version}/`
+}
+
+async function createPendingPublishStatus(
+  octo: Octokit,
+  pathToCompiler: string
+): Promise<void> {
+  const diffStatus = await getElmDiffStatus(pathToCompiler)
+  if (diffStatus) {
+    setCommitStatus(octo, {
+      description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
+      name: 'Elm Publish',
+      state: 'success'
+    })
+  }
+}
+
+async function getElmDiffStatus(
+  pathToCompiler: string
+): Promise<string | null> {
+  // This is a MINOR change.
+
+  try {
+    let output = ''
+    const options = {
+      listeners: {
+        stdout: (data: Buffer) => {
+          output += data.toString()
+        },
+        stderr: (data: Buffer) => {
+          output += data.toString()
+        }
+      }
+    }
+    await exec(pathToCompiler, ['diff'], {
+      ...options
+    })
+    const maybeMatch = output
+      .toLowerCase()
+      .match(/^This is a (\w+) change./)?.[0]
+    if (maybeMatch) {
+      return maybeMatch
+    } else {
+      return null
+    }
+  } catch {
+    return null
+  }
 }
 
 run()
