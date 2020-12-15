@@ -1,8 +1,10 @@
 import * as core from '@actions/core'
-import * as github from '@actions/github'
+import {GitHub} from '@actions/github/lib/utils'
+
+type Octokit = InstanceType<typeof GitHub>
 
 export async function createAnnotatedTag(
-  octokit: github.GitHub,
+  octokit: Octokit,
   tag: string
 ): Promise<void> {
   const [repoOwner, repoName] = process.env['GITHUB_REPOSITORY']?.split(
@@ -16,7 +18,7 @@ export async function createAnnotatedTag(
   const createTagResponse = await octokit.git.createTag({
     owner: repoOwner,
     repo: repoName,
-    tag: tag,
+    tag,
     message: 'new release',
     object: process.env['GITHUB_SHA'],
     type: 'commit'
@@ -28,4 +30,54 @@ export async function createAnnotatedTag(
     ref: `refs/tags/${tag}`,
     sha: process.env['GITHUB_SHA']
   })
+}
+
+export async function getDefaultBranch(octokit: Octokit): Promise<string> {
+  const githubRepo = process.env['GITHUB_REPOSITORY']
+  if (githubRepo) {
+    const [owner, repo] = githubRepo.split('/')
+    const repoDetails = await octokit.repos.get({
+      owner,
+      repo
+    })
+    return repoDetails.data.default_branch
+  } else {
+    throw new Error('Could not find GITHUB_REPOSITORY')
+  }
+}
+
+export async function setCommitStatus(
+  octokit: Octokit,
+  params: {
+    name: string
+    description: string
+    state: 'error' | 'failure' | 'pending' | 'success'
+  }
+): Promise<void> {
+  try {
+    const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
+    const [owner, repo] = githubRepo.split('/')
+    core.debug(
+      `Updating status: ${JSON.stringify({
+        context: params.name,
+        description: params.description,
+        owner,
+        repo,
+        sha: process.env['GITHUB_SHA'] || '',
+        state: params.state
+      })}`
+    )
+    await octokit.repos.createCommitStatus({
+      context: params.name,
+      description: params.description,
+      owner,
+      repo,
+      sha: process.env['GITHUB_SHA'] || '',
+      state: params.state,
+      target_url: 'https://elm-lang.org/news/0.14'
+    })
+    core.debug(`Updated build status: ${params.state}`)
+  } catch (error) {
+    throw new Error(`error while setting context status: ${error.message}`)
+  }
 }

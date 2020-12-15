@@ -1,6 +1,6 @@
 # elm-publish-action
 
-Publishes your elm package if you're on the master branch and
+Publishes your elm package if you're on the main or master branch and
 the elm.json version is unpublished. It will automatically
 create a tag in github and run publish.
 
@@ -22,7 +22,7 @@ pushing version 1.0.0 before you're ready to publish.
 
 ## Suggested workflow
 
-This action only publishes on the master branch. So a good workflow is to change versions on a branch, and
+This action only publishes on the main or master branch. So a good workflow is to change versions on a branch, and
 then once you merge that branch the new release will happen as soon as your CI finishes. Or if your CI fails,
 you'll get a chance to fix it before the release goes out.
 
@@ -52,10 +52,10 @@ name: Elm Actions
 on:
   push:
     branches:
-      - master
+      - $default-branch
   pull_request:
     branches:
-      - master
+      - $default-branch
 
 jobs:
   # define other jobs here, like test, etc.
