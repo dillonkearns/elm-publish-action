@@ -33,7 +33,7 @@ async function run(): Promise<void> {
 
     let publishedVersions: string[] = []
     const preventPublishReasons: string[] = []
-    axios
+    await axios
       .get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`)
       .then(versionsResponse => {
         core.debug(`versionsResponse ${versionsResponse}`)

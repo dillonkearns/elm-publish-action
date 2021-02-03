@@ -9092,7 +9092,7 @@ function run() {
             const releasesUrl = `https://package.elm-lang.org/packages/${githubRepo}/releases.json`;
             let publishedVersions = [];
             const preventPublishReasons = [];
-            axios_1.default
+            yield axios_1.default
                 .get(`https://package.elm-lang.org/packages/${githubRepo}/releases.json`)
                 .then(versionsResponse => {
                 core.debug(`versionsResponse ${versionsResponse}`);
