@@ -9077,6 +9077,7 @@ const git_helpers_1 = __webpack_require__(932);
 const io = __importStar(__webpack_require__(1));
 const tools = new actions_toolkit_1.Toolkit();
 const gitHubToken = core.getInput('github-token');
+const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
 const octokit = github.getOctokit(gitHubToken);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -9155,18 +9156,23 @@ function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
             core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
             // tag already existed -- no need to call publish
         }
-        else if (/-- NO TAG --/.test(publishOutput)) {
-            core.startGroup(`Creating git tag`);
-            yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
-            yield exec_1.exec(`git fetch --tags`);
-            core.info(`Created git tag ${currentElmJsonVersion}`);
-            core.endGroup();
-            yield exec_1.exec(pathToCompiler, [`publish`]);
-            core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
+        else if (publishOutput.includes('-- NO TAG --')) {
+            yield performPublish(currentElmJsonVersion, pathToCompiler, githubRepo);
         }
         else {
             core.setFailed(publishOutput);
         }
+    });
+}
+function performPublish(currentElmJsonVersion, pathToCompiler, githubRepo) {
+    return __awaiter(this, void 0, void 0, function* () {
+        core.startGroup(`Creating git tag`);
+        yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
+        yield exec_1.exec(`git fetch --tags`);
+        core.info(`Created git tag ${currentElmJsonVersion}`);
+        core.endGroup();
+        yield exec_1.exec(pathToCompiler, [`publish`]);
+        core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
     });
 }
 function publishedUrl(repoWithOwner, version) {

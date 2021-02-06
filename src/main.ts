@@ -15,6 +15,7 @@ type Octokit = InstanceType<typeof GitHub>
 const tools = new Toolkit()
 
 const gitHubToken = core.getInput('github-token')
+const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
 const octokit = github.getOctokit(gitHubToken)
 
 async function run(): Promise<void> {
@@ -115,18 +116,26 @@ async function tryPublish(
     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
     // tag already existed -- no need to call publish
   } else if (publishOutput.includes('-- NO TAG --')) {
-    core.startGroup(`Creating git tag`)
-    await createAnnotatedTag(octokit, currentElmJsonVersion)
-    await exec(`git fetch --tags`)
-    core.info(`Created git tag ${currentElmJsonVersion}`)
-    core.endGroup()
-
-    await exec(pathToCompiler, [`publish`])
-
-    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
+    await performPublish(currentElmJsonVersion, pathToCompiler, githubRepo)
   } else {
     core.setFailed(publishOutput)
   }
+}
+
+async function performPublish(
+  currentElmJsonVersion: string,
+  pathToCompiler: string,
+  githubRepo: string
+): Promise<void> {
+  core.startGroup(`Creating git tag`)
+  await createAnnotatedTag(octokit, currentElmJsonVersion)
+  await exec(`git fetch --tags`)
+  core.info(`Created git tag ${currentElmJsonVersion}`)
+  core.endGroup()
+
+  await exec(pathToCompiler, [`publish`])
+
+  core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
 }
 
 function publishedUrl(repoWithOwner: string, version: string): string {
