@@ -77,15 +77,29 @@ async function run(): Promise<void> {
         `This action only publishes from the default branch (currently set to ${defaultBranch}).`
       )
     }
-    if (preventPublishReasons.length > 0) {
+
+    const isPublishable = preventPublishReasons.length === 0
+    core.setOutput('is-publishable', `${isPublishable}`)
+    if (!isPublishable) {
       setCommitStatus(octokit, {
         description: `No pending publish on merge. See action output for details.`,
         name: 'Elm Publish',
         state: 'success'
       })
+      if (dryRun) {
+        core.info(
+          'dry-run is set to true, but even without dry-run true this action would not publish because of the reasons listed below.'
+        )
+      }
       core.info(preventPublishReasons.join('\n'))
     } else {
-      await tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion)
+      if (dryRun) {
+        core.info(
+          'Skipping publish because dry-run is set to true. Without dry-run, publish would run now.'
+        )
+      } else {
+        await tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion)
+      }
     }
   } catch (error) {
     core.setFailed(error.message)
