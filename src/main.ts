@@ -97,29 +97,37 @@ async function tryPublish(
   githubRepo: string,
   currentElmJsonVersion: string
 ): Promise<void> {
-  let publishOutput = ''
+  const result = await runCommandWithOutput(pathToCompiler, ['publish'])
+  if (result.status === 0) {
+    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
+    // tag already existed -- no need to call publish
+  } else if (result.output.includes('-- NO TAG --')) {
+    await performPublish(currentElmJsonVersion, pathToCompiler, githubRepo)
+  } else {
+    core.setFailed(result.output)
+  }
+}
+
+async function runCommandWithOutput(
+  command: string,
+  args: string[]
+): Promise<{status: number; output: string}> {
+  let output = ''
   const options = {
     listeners: {
       stdout: (data: Buffer) => {
-        publishOutput += data.toString()
+        output += data.toString()
       },
       stderr: (data: Buffer) => {
-        publishOutput += data.toString()
+        output += data.toString()
       }
     }
   }
-  const status = await exec(pathToCompiler, ['publish'], {
+  const status = await exec(command, args, {
     ...options,
     ignoreReturnCode: true
   })
-  if (status === 0) {
-    core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
-    // tag already existed -- no need to call publish
-  } else if (publishOutput.includes('-- NO TAG --')) {
-    await performPublish(currentElmJsonVersion, pathToCompiler, githubRepo)
-  } else {
-    core.setFailed(publishOutput)
-  }
+  return {status, output}
 }
 
 async function performPublish(

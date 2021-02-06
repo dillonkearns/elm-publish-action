@@ -9140,28 +9140,34 @@ function run() {
 }
 function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
     return __awaiter(this, void 0, void 0, function* () {
-        let publishOutput = '';
-        const options = {
-            listeners: {
-                stdout: (data) => {
-                    publishOutput += data.toString();
-                },
-                stderr: (data) => {
-                    publishOutput += data.toString();
-                }
-            }
-        };
-        const status = yield exec_1.exec(pathToCompiler, ['publish'], Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
-        if (status === 0) {
+        const result = yield runCommandWithOutput(pathToCompiler, ['publish']);
+        if (result.status === 0) {
             core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
             // tag already existed -- no need to call publish
         }
-        else if (publishOutput.includes('-- NO TAG --')) {
+        else if (result.output.includes('-- NO TAG --')) {
             yield performPublish(currentElmJsonVersion, pathToCompiler, githubRepo);
         }
         else {
-            core.setFailed(publishOutput);
+            core.setFailed(result.output);
         }
+    });
+}
+function runCommandWithOutput(command, args) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let output = '';
+        const options = {
+            listeners: {
+                stdout: (data) => {
+                    output += data.toString();
+                },
+                stderr: (data) => {
+                    output += data.toString();
+                }
+            }
+        };
+        const status = yield exec_1.exec(command, args, Object.assign(Object.assign({}, options), { ignoreReturnCode: true }));
+        return { status, output };
     });
 }
 function performPublish(currentElmJsonVersion, pathToCompiler, githubRepo) {
