@@ -114,7 +114,7 @@ async function tryPublish(
   if (status === 0) {
     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
     // tag already existed -- no need to call publish
-  } else if (/-- NO TAG --/.test(publishOutput)) {
+  } else if (publishOutput.includes('-- NO TAG --')) {
     core.startGroup(`Creating git tag`)
     await createAnnotatedTag(octokit, currentElmJsonVersion)
     await exec(`git fetch --tags`)
