@@ -4,14 +4,21 @@ Publishes your elm package if you're on the main or master branch and
 the elm.json version is unpublished. It will automatically
 create a tag in github and run publish.
 
+## Project Goals
+
+- Publish a new Elm package version simply by running `elm bump` and committing your `elm.json` with the new version. From there, this tool will perform the rest of the publish steps.
+- Publish a new version *only if* your CI fails - the last thing you want is to publish and then realize your test suite was failing. But your build failure came back after you ran `elm publish` by hand. This tool fixes that problem by running `elm publish` for you (and creating the appropriate git tags) *within your build process*, so you can make sure the rest of your build succeeds before publishing.
+
+The ideal that this tool strives for is:
+
+- Any time `elm publish` would fail, this package will let you know *before* you try to publish to give you early feedback. You don't want to wait to find out that your documentation isn't ready to publish until you decide to publish. You want to get that feedback early and often, well before you try to publish.
+
 This action is idempotent, so you can run this as much as you want and it will always do the right thing:
 * No-op and succeed if the current version in elm.json exists in the registry (it actually fetches the published examples to check from the source of truth)
 * Try to publish otherwise
 * If it's publishable, tag and publish
 * If it's not publishable, don't tag, just show failure message in CI output
 
-This is nice because you can make sure your CI is passing before
-the finalizing the git tag and Elm package release.
 
 ## Initial publish must be done manually
 
@@ -34,8 +41,8 @@ you'll get a chance to fix it before the release goes out.
 
 You can pass in an input like this:
 
-```
-- uses: dillonkearns/elm-publish-action@master
+```yml
+- uses: dillonkearns/elm-publish-action@v1
 with:
   github-token: ${{ secrets.GITHUB_TOKEN }}
   path-to-elm: ./node_modules/.bin/elm
@@ -52,10 +59,10 @@ name: Elm Actions
 on:
   push:
     branches:
-      - $default-branch
+      - main
   pull_request:
     branches:
-      - $default-branch
+      - main
 
 jobs:
   # define other jobs here, like test, etc.
@@ -67,10 +74,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Use Node.js 13
+      - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: 13
+          node-version: 15
       - uses: actions/cache@v1
         with:
           path: ~/.npm
@@ -84,8 +91,24 @@ jobs:
           key: ${{ runner.os }}-elm--home-${{ hashFiles('**/elm.json') }}
       - run: npm ci
       - run: npx --no-install elm make --output /dev/null && cd examples && npx --no-install elm make src/*.elm --output /dev/null && cd ..
-      - uses: dillonkearns/elm-publish-action@master
+      - uses: dillonkearns/elm-publish-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm
 ```
+
+## Checking if a package is ready to publish
+
+You can run this action in `dry-run` mode and use the `is-publishable` output to see if it will try to perform a publish. One way you can use this is to perform a pre-publish action.
+
+```yml
+      - uses: dillonkearns/elm-publish-action@v1
+        id: publish
+        with:
+          dry-run: true
+          path-to-elm: ./node_modules/.bin/elm
+      - if: steps.publish.outputs.is-publishable == 'true'
+         run: echo "elm-publish-action is going to publish if run without dry-run=true"
+```
+
+Note that there is no `github-token` key. This action will fail if you provide a `github-token` in `dry-run` mode. It requires you to omit the token for a dry-run to ensure that it *can't* publish.
