@@ -9073,7 +9073,7 @@ const exec_1 = __webpack_require__(986);
 const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
-const octokitCore = __importStar(__webpack_require__(448));
+const octokitRest = __importStar(__webpack_require__(0));
 const git_helpers_1 = __webpack_require__(932);
 const io = __importStar(__webpack_require__(1));
 function initializeOctokit(dryRun) {
@@ -9085,7 +9085,7 @@ function initializeOctokit(dryRun) {
         else {
             // we can't use github.getOctokit because it will throw an error without an authToken argument
             // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
-            return new octokitCore.Octokit();
+            return new octokitRest.Octokit();
         }
     }
     else {
@@ -9141,11 +9141,6 @@ function run() {
             const isPublishable = preventPublishReasons.length === 0;
             core.setOutput('is-publishable', `${isPublishable}`);
             if (!isPublishable) {
-                git_helpers_1.setCommitStatus(octokit, {
-                    description: `No pending publish on merge. See action output for details.`,
-                    name: 'Elm Publish',
-                    state: 'success'
-                });
                 if (dryRun) {
                     core.info('dry-run is set to true, but even without dry-run true this action would not publish because of the reasons listed below.');
                 }
@@ -9215,11 +9210,11 @@ function createPendingPublishStatus(octo, pathToCompiler) {
     return __awaiter(this, void 0, void 0, function* () {
         const diffStatus = yield getElmDiffStatus(pathToCompiler);
         if (diffStatus) {
-            git_helpers_1.setCommitStatus(octo, {
-                description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
-                name: 'Elm Publish',
-                state: 'success'
-            });
+            // setCommitStatus(octo, {
+            //   description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
+            //   name: 'Elm Publish',
+            //   state: 'success'
+            // })
         }
     });
 }
@@ -45099,7 +45094,7 @@ function hasNextPage (link) {
 /* 930 */,
 /* 931 */,
 /* 932 */
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(__unusedmodule, exports) {
 
 "use strict";
 
@@ -45112,15 +45107,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const core = __importStar(__webpack_require__(470));
 function createAnnotatedTag(octokit, tag) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -45162,36 +45149,6 @@ function getDefaultBranch(octokit) {
     });
 }
 exports.getDefaultBranch = getDefaultBranch;
-function setCommitStatus(octokit, params) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
-            const [owner, repo] = githubRepo.split('/');
-            core.debug(`Updating status: ${JSON.stringify({
-                context: params.name,
-                description: params.description,
-                owner,
-                repo,
-                sha: process.env['GITHUB_SHA'] || '',
-                state: params.state
-            })}`);
-            yield octokit.repos.createCommitStatus({
-                context: params.name,
-                description: params.description,
-                owner,
-                repo,
-                sha: process.env['GITHUB_SHA'] || '',
-                state: params.state,
-                target_url: 'https://elm-lang.org/news/0.14'
-            });
-            core.debug(`Updated build status: ${params.state}`);
-        }
-        catch (error) {
-            throw new Error(`error while setting context status: ${error.message}`);
-        }
-    });
-}
-exports.setCommitStatus = setCommitStatus;
 
 
 /***/ }),

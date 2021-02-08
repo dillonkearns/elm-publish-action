@@ -3,15 +3,14 @@ import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
-import * as octokitCore from '@octokit/core'
-import {
-  createAnnotatedTag,
-  getDefaultBranch,
-  setCommitStatus
-} from './git-helpers'
+import * as octokitRest from '@octokit/rest'
+import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
 import * as io from '@actions/io'
+import {GitHub} from '@actions/github/lib/utils'
 
-type Octokit = octokitCore.Octokit
+type OctokitUtil = InstanceType<typeof GitHub>
+
+type Octokit = octokitRest.Octokit | OctokitUtil
 
 function initializeOctokit(dryRun: boolean): Octokit {
   if (dryRun) {
@@ -23,7 +22,7 @@ function initializeOctokit(dryRun: boolean): Octokit {
     } else {
       // we can't use github.getOctokit because it will throw an error without an authToken argument
       // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
-      return new octokitCore.Octokit()
+      return new octokitRest.Octokit()
     }
   } else {
     const gitHubToken = core.getInput('github-token', {required: true})
@@ -97,11 +96,6 @@ async function run(): Promise<void> {
     const isPublishable = preventPublishReasons.length === 0
     core.setOutput('is-publishable', `${isPublishable}`)
     if (!isPublishable) {
-      setCommitStatus(octokit, {
-        description: `No pending publish on merge. See action output for details.`,
-        name: 'Elm Publish',
-        state: 'success'
-      })
       if (dryRun) {
         core.info(
           'dry-run is set to true, but even without dry-run true this action would not publish because of the reasons listed below.'
@@ -198,11 +192,11 @@ async function createPendingPublishStatus(
 ): Promise<void> {
   const diffStatus = await getElmDiffStatus(pathToCompiler)
   if (diffStatus) {
-    setCommitStatus(octo, {
-      description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
-      name: 'Elm Publish',
-      state: 'success'
-    })
+    // setCommitStatus(octo, {
+    //   description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
+    //   name: 'Elm Publish',
+    //   state: 'success'
+    // })
   }
 }
 
