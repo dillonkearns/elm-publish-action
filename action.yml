@@ -11,6 +11,9 @@ inputs:
   dry-run:
     description: "Perform the check without actually publishing. Do not include github-token when you perform a dry-run."
     required: false
+outputs:
+  is-publishable:
+    description: "Whether this Elm package is in a state that can be published. In a dry-run, this will tell you whether elm-publish-action will attempt to publish in a real run."
 runs:
   using: 'node12'
   main: 'dist/index.js'
