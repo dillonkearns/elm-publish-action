@@ -32,16 +32,16 @@ function initializeOctokit(dryRun: boolean): Octokit {
 }
 
 async function run(): Promise<void> {
-  const tools = new Toolkit()
-  const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
-  const octokit = initializeOctokit(dryRun)
-  let pathToCompiler = core.getInput('path-to-elm')
-  if (!pathToCompiler) {
-    pathToCompiler = await io.which('elm', true)
-  }
-  await exec(pathToCompiler, [`--version`])
-
   try {
+    const tools = new Toolkit()
+    const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
+    const octokit = initializeOctokit(dryRun)
+    let pathToCompiler = core.getInput('path-to-elm')
+    if (!pathToCompiler) {
+      pathToCompiler = await io.which('elm', true)
+    }
+    await exec(pathToCompiler, [`--version`])
+
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const githubRef = process.env['GITHUB_REF'] || ''
     const defaultBranch = await getDefaultBranch(octokit)

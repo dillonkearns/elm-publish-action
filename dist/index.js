@@ -9095,15 +9095,15 @@ function initializeOctokit(dryRun) {
 }
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        const tools = new actions_toolkit_1.Toolkit();
-        const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
-        const octokit = initializeOctokit(dryRun);
-        let pathToCompiler = core.getInput('path-to-elm');
-        if (!pathToCompiler) {
-            pathToCompiler = yield io.which('elm', true);
-        }
-        yield exec_1.exec(pathToCompiler, [`--version`]);
         try {
+            const tools = new actions_toolkit_1.Toolkit();
+            const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
+            const octokit = initializeOctokit(dryRun);
+            let pathToCompiler = core.getInput('path-to-elm');
+            if (!pathToCompiler) {
+                pathToCompiler = yield io.which('elm', true);
+            }
+            yield exec_1.exec(pathToCompiler, [`--version`]);
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const githubRef = process.env['GITHUB_REF'] || '';
             const defaultBranch = yield git_helpers_1.getDefaultBranch(octokit);
