@@ -3,10 +3,13 @@ description: 'Publish Elm package from the master branch if the current version 
 author: 'Dillon Kearns'
 inputs:
   github-token:
-    description: "Token provided by GitHub"
-    required: true
+    description: "Token provided by GitHub. This is required, unless you are performing a dry-run."
+    required: false
   path-to-elm:
     description: "Path to Elm compiler to use instead of looking in the PATH."
+    required: false
+  dry-run:
+    description: "Perform the check without actually publishing. Do not include github-token when you perform a dry-run."
     required: false
 runs:
   using: 'node12'
