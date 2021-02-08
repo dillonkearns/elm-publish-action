@@ -9073,7 +9073,7 @@ const exec_1 = __webpack_require__(986);
 const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
-const core_1 = __importDefault(__webpack_require__(448));
+const octokitCore = __importStar(__webpack_require__(448));
 const git_helpers_1 = __webpack_require__(932);
 const io = __importStar(__webpack_require__(1));
 function initializeOctokit(dryRun) {
@@ -9085,7 +9085,7 @@ function initializeOctokit(dryRun) {
         else {
             // we can't use github.getOctokit because it will throw an error without an authToken argument
             // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
-            return new core_1.default.Octokit();
+            return new octokitCore.Octokit();
         }
     }
     else {

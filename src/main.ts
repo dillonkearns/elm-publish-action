@@ -3,7 +3,7 @@ import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
-import octokitCore from '@octokit/core'
+import * as octokitCore from '@octokit/core'
 import {
   createAnnotatedTag,
   getDefaultBranch,
