@@ -3,29 +3,44 @@ import {exec} from '@actions/exec'
 import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
-import {
-  createAnnotatedTag,
-  getDefaultBranch,
-  setCommitStatus
-} from './git-helpers'
+import * as octokitRest from '@octokit/rest'
+import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
 import * as io from '@actions/io'
 import {GitHub} from '@actions/github/lib/utils'
 
-type Octokit = InstanceType<typeof GitHub>
-const tools = new Toolkit()
+type OctokitUtil = InstanceType<typeof GitHub>
 
-const gitHubToken = core.getInput('github-token')
-const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
-const octokit = github.getOctokit(gitHubToken)
+type Octokit = octokitRest.Octokit | OctokitUtil
+
+function initializeOctokit(dryRun: boolean): Octokit {
+  if (dryRun) {
+    const token = core.getInput('github-token')
+    if (token && token !== '') {
+      throw new Error(
+        'When performing a dry-run, do not pass the github-token argument.'
+      )
+    } else {
+      // we can't use github.getOctokit because it will throw an error without an authToken argument
+      // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
+      return new octokitRest.Octokit()
+    }
+  } else {
+    const gitHubToken = core.getInput('github-token', {required: true})
+    return github.getOctokit(gitHubToken)
+  }
+}
 
 async function run(): Promise<void> {
-  let pathToCompiler = core.getInput('path-to-elm')
-  if (!pathToCompiler) {
-    pathToCompiler = await io.which('elm', true)
-  }
-  await exec(pathToCompiler, [`--version`])
-
   try {
+    const tools = new Toolkit()
+    const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
+    const octokit = initializeOctokit(dryRun)
+    let pathToCompiler = core.getInput('path-to-elm')
+    if (!pathToCompiler) {
+      pathToCompiler = await io.which('elm', true)
+    }
+    await exec(pathToCompiler, [`--version`])
+
     const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
     const githubRef = process.env['GITHUB_REF'] || ''
     const defaultBranch = await getDefaultBranch(octokit)
@@ -77,15 +92,29 @@ async function run(): Promise<void> {
         `This action only publishes from the default branch (currently set to ${defaultBranch}).`
       )
     }
-    if (preventPublishReasons.length > 0) {
-      setCommitStatus(octokit, {
-        description: `No pending publish on merge. See action output for details.`,
-        name: 'Elm Publish',
-        state: 'success'
-      })
+
+    const isPublishable = preventPublishReasons.length === 0
+    core.setOutput('is-publishable', `${isPublishable}`)
+    if (!isPublishable) {
+      if (dryRun) {
+        core.info(
+          'dry-run is set to true, but even without dry-run true this action would not publish because of the reasons listed below.'
+        )
+      }
       core.info(preventPublishReasons.join('\n'))
     } else {
-      await tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion)
+      if (dryRun) {
+        core.info(
+          'Skipping publish because dry-run is set to true. Without dry-run, publish would run now.'
+        )
+      } else {
+        await tryPublish(
+          octokit,
+          pathToCompiler,
+          githubRepo,
+          currentElmJsonVersion
+        )
+      }
     }
   } catch (error) {
     core.setFailed(error.message)
@@ -93,6 +122,7 @@ async function run(): Promise<void> {
 }
 
 async function tryPublish(
+  octokit: Octokit,
   pathToCompiler: string,
   githubRepo: string,
   currentElmJsonVersion: string
@@ -102,7 +132,12 @@ async function tryPublish(
     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
     // tag already existed -- no need to call publish
   } else if (result.output.includes('-- NO TAG --')) {
-    await performPublish(currentElmJsonVersion, pathToCompiler, githubRepo)
+    await performPublish(
+      octokit,
+      currentElmJsonVersion,
+      pathToCompiler,
+      githubRepo
+    )
   } else {
     core.setFailed(result.output)
   }
@@ -131,6 +166,7 @@ async function runCommandWithOutput(
 }
 
 async function performPublish(
+  octokit: Octokit,
   currentElmJsonVersion: string,
   pathToCompiler: string,
   githubRepo: string
@@ -156,11 +192,11 @@ async function createPendingPublishStatus(
 ): Promise<void> {
   const diffStatus = await getElmDiffStatus(pathToCompiler)
   if (diffStatus) {
-    setCommitStatus(octo, {
-      description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
-      name: 'Elm Publish',
-      state: 'success'
-    })
+    // setCommitStatus(octo, {
+    //   description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
+    //   name: 'Elm Publish',
+    //   state: 'success'
+    // })
   }
 }
 

@@ -1,7 +1,9 @@
-import * as core from '@actions/core'
+import octokitRest from '@octokit/rest'
 import {GitHub} from '@actions/github/lib/utils'
 
-type Octokit = InstanceType<typeof GitHub>
+type OctokitUtil = InstanceType<typeof GitHub>
+
+type Octokit = octokitRest.Octokit | OctokitUtil
 
 export async function createAnnotatedTag(
   octokit: Octokit,
@@ -43,41 +45,5 @@ export async function getDefaultBranch(octokit: Octokit): Promise<string> {
     return repoDetails.data.default_branch
   } else {
     throw new Error('Could not find GITHUB_REPOSITORY')
-  }
-}
-
-export async function setCommitStatus(
-  octokit: Octokit,
-  params: {
-    name: string
-    description: string
-    state: 'error' | 'failure' | 'pending' | 'success'
-  }
-): Promise<void> {
-  try {
-    const githubRepo = process.env['GITHUB_REPOSITORY'] || ''
-    const [owner, repo] = githubRepo.split('/')
-    core.debug(
-      `Updating status: ${JSON.stringify({
-        context: params.name,
-        description: params.description,
-        owner,
-        repo,
-        sha: process.env['GITHUB_SHA'] || '',
-        state: params.state
-      })}`
-    )
-    await octokit.repos.createCommitStatus({
-      context: params.name,
-      description: params.description,
-      owner,
-      repo,
-      sha: process.env['GITHUB_SHA'] || '',
-      state: params.state,
-      target_url: 'https://elm-lang.org/news/0.14'
-    })
-    core.debug(`Updated build status: ${params.state}`)
-  } catch (error) {
-    throw new Error(`error while setting context status: ${error.message}`)
   }
 }

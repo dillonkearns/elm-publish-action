@@ -9073,20 +9073,37 @@ const exec_1 = __webpack_require__(986);
 const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
+const octokitRest = __importStar(__webpack_require__(0));
 const git_helpers_1 = __webpack_require__(932);
 const io = __importStar(__webpack_require__(1));
-const tools = new actions_toolkit_1.Toolkit();
-const gitHubToken = core.getInput('github-token');
-const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
-const octokit = github.getOctokit(gitHubToken);
+function initializeOctokit(dryRun) {
+    if (dryRun) {
+        const token = core.getInput('github-token');
+        if (token && token !== '') {
+            throw new Error('When performing a dry-run, do not pass the github-token argument.');
+        }
+        else {
+            // we can't use github.getOctokit because it will throw an error without an authToken argument
+            // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
+            return new octokitRest.Octokit();
+        }
+    }
+    else {
+        const gitHubToken = core.getInput('github-token', { required: true });
+        return github.getOctokit(gitHubToken);
+    }
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        let pathToCompiler = core.getInput('path-to-elm');
-        if (!pathToCompiler) {
-            pathToCompiler = yield io.which('elm', true);
-        }
-        yield exec_1.exec(pathToCompiler, [`--version`]);
         try {
+            const tools = new actions_toolkit_1.Toolkit();
+            const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
+            const octokit = initializeOctokit(dryRun);
+            let pathToCompiler = core.getInput('path-to-elm');
+            if (!pathToCompiler) {
+                pathToCompiler = yield io.which('elm', true);
+            }
+            yield exec_1.exec(pathToCompiler, [`--version`]);
             const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
             const githubRef = process.env['GITHUB_REF'] || '';
             const defaultBranch = yield git_helpers_1.getDefaultBranch(octokit);
@@ -9121,16 +9138,21 @@ function run() {
                 }
                 preventPublishReasons.push(`This action only publishes from the default branch (currently set to ${defaultBranch}).`);
             }
-            if (preventPublishReasons.length > 0) {
-                git_helpers_1.setCommitStatus(octokit, {
-                    description: `No pending publish on merge. See action output for details.`,
-                    name: 'Elm Publish',
-                    state: 'success'
-                });
+            const isPublishable = preventPublishReasons.length === 0;
+            core.setOutput('is-publishable', `${isPublishable}`);
+            if (!isPublishable) {
+                if (dryRun) {
+                    core.info('dry-run is set to true, but even without dry-run true this action would not publish because of the reasons listed below.');
+                }
                 core.info(preventPublishReasons.join('\n'));
             }
             else {
-                yield tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion);
+                if (dryRun) {
+                    core.info('Skipping publish because dry-run is set to true. Without dry-run, publish would run now.');
+                }
+                else {
+                    yield tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion);
+                }
             }
         }
         catch (error) {
@@ -9138,7 +9160,7 @@ function run() {
         }
     });
 }
-function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
+function tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion) {
     return __awaiter(this, void 0, void 0, function* () {
         const result = yield runCommandWithOutput(pathToCompiler, ['publish']);
         if (result.status === 0) {
@@ -9146,7 +9168,7 @@ function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
             // tag already existed -- no need to call publish
         }
         else if (result.output.includes('-- NO TAG --')) {
-            yield performPublish(currentElmJsonVersion, pathToCompiler, githubRepo);
+            yield performPublish(octokit, currentElmJsonVersion, pathToCompiler, githubRepo);
         }
         else {
             core.setFailed(result.output);
@@ -9170,7 +9192,7 @@ function runCommandWithOutput(command, args) {
         return { status, output };
     });
 }
-function performPublish(currentElmJsonVersion, pathToCompiler, githubRepo) {
+function performPublish(octokit, currentElmJsonVersion, pathToCompiler, githubRepo) {
     return __awaiter(this, void 0, void 0, function* () {
         core.startGroup(`Creating git tag`);
         yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
@@ -9188,11 +9210,11 @@ function createPendingPublishStatus(octo, pathToCompiler) {
     return __awaiter(this, void 0, void 0, function* () {
         const diffStatus = yield getElmDiffStatus(pathToCompiler);
         if (diffStatus) {
-            git_helpers_1.setCommitStatus(octo, {
-                description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
-                name: 'Elm Publish',
-                state: 'success'
-            });
+            // setCommitStatus(octo, {
+            //   description: `A ${diffStatus} package change is pending. Merge branch to publish.`,
+            //   name: 'Elm Publish',
+            //   state: 'success'
+            // })
         }
     });
 }
@@ -45072,7 +45094,7 @@ function hasNextPage (link) {
 /* 930 */,
 /* 931 */,
 /* 932 */
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(__unusedmodule, exports) {
 
 "use strict";
 
@@ -45085,15 +45107,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const core = __importStar(__webpack_require__(470));
 function createAnnotatedTag(octokit, tag) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -45135,36 +45149,6 @@ function getDefaultBranch(octokit) {
     });
 }
 exports.getDefaultBranch = getDefaultBranch;
-function setCommitStatus(octokit, params) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const githubRepo = process.env['GITHUB_REPOSITORY'] || '';
-            const [owner, repo] = githubRepo.split('/');
-            core.debug(`Updating status: ${JSON.stringify({
-                context: params.name,
-                description: params.description,
-                owner,
-                repo,
-                sha: process.env['GITHUB_SHA'] || '',
-                state: params.state
-            })}`);
-            yield octokit.repos.createCommitStatus({
-                context: params.name,
-                description: params.description,
-                owner,
-                repo,
-                sha: process.env['GITHUB_SHA'] || '',
-                state: params.state,
-                target_url: 'https://elm-lang.org/news/0.14'
-            });
-            core.debug(`Updated build status: ${params.state}`);
-        }
-        catch (error) {
-            throw new Error(`error while setting context status: ${error.message}`);
-        }
-    });
-}
-exports.setCommitStatus = setCommitStatus;
 
 
 /***/ }),
