@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
-import {GitHub} from '@actions/github/lib/utils'
+import octokitCore from '@octokit/core'
 
-type Octokit = InstanceType<typeof GitHub>
+type Octokit = octokitCore.Octokit
 
 export async function createAnnotatedTag(
   octokit: Octokit,

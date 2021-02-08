@@ -9073,14 +9073,31 @@ const exec_1 = __webpack_require__(986);
 const axios_1 = __importDefault(__webpack_require__(53));
 const actions_toolkit_1 = __webpack_require__(461);
 const github = __importStar(__webpack_require__(469));
+const core_1 = __importDefault(__webpack_require__(448));
 const git_helpers_1 = __webpack_require__(932);
 const io = __importStar(__webpack_require__(1));
-const tools = new actions_toolkit_1.Toolkit();
-const gitHubToken = core.getInput('github-token');
-const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
-const octokit = github.getOctokit(gitHubToken);
+function initializeOctokit(dryRun) {
+    if (dryRun) {
+        const token = core.getInput('github-token');
+        if (token && token !== '') {
+            throw new Error('When performing a dry-run, do not pass the github-token argument.');
+        }
+        else {
+            // we can't use github.getOctokit because it will throw an error without an authToken argument
+            // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
+            return new core_1.default.Octokit();
+        }
+    }
+    else {
+        const gitHubToken = core.getInput('github-token', { required: true });
+        return github.getOctokit(gitHubToken);
+    }
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        const tools = new actions_toolkit_1.Toolkit();
+        const dryRun = core.getInput('dry-run').toLowerCase() === 'true';
+        const octokit = initializeOctokit(dryRun);
         let pathToCompiler = core.getInput('path-to-elm');
         if (!pathToCompiler) {
             pathToCompiler = yield io.which('elm', true);
@@ -9139,7 +9156,7 @@ function run() {
                     core.info('Skipping publish because dry-run is set to true. Without dry-run, publish would run now.');
                 }
                 else {
-                    yield tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion);
+                    yield tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion);
                 }
             }
         }
@@ -9148,7 +9165,7 @@ function run() {
         }
     });
 }
-function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
+function tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion) {
     return __awaiter(this, void 0, void 0, function* () {
         const result = yield runCommandWithOutput(pathToCompiler, ['publish']);
         if (result.status === 0) {
@@ -9156,7 +9173,7 @@ function tryPublish(pathToCompiler, githubRepo, currentElmJsonVersion) {
             // tag already existed -- no need to call publish
         }
         else if (result.output.includes('-- NO TAG --')) {
-            yield performPublish(currentElmJsonVersion, pathToCompiler, githubRepo);
+            yield performPublish(octokit, currentElmJsonVersion, pathToCompiler, githubRepo);
         }
         else {
             core.setFailed(result.output);
@@ -9180,7 +9197,7 @@ function runCommandWithOutput(command, args) {
         return { status, output };
     });
 }
-function performPublish(currentElmJsonVersion, pathToCompiler, githubRepo) {
+function performPublish(octokit, currentElmJsonVersion, pathToCompiler, githubRepo) {
     return __awaiter(this, void 0, void 0, function* () {
         core.startGroup(`Creating git tag`);
         yield git_helpers_1.createAnnotatedTag(octokit, currentElmJsonVersion);
