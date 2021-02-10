@@ -7,7 +7,7 @@ create a tag in github and run publish.
 ## Project Goals
 
 - Publish a new Elm package version simply by running `elm bump` and committing your `elm.json` with the new version. From there, this tool will perform the rest of the publish steps.
-- Publish a new version *only if* your CI fails - the last thing you want is to publish and then realize your test suite was failing. But your build failure came back after you ran `elm publish` by hand. This tool fixes that problem by running `elm publish` for you (and creating the appropriate git tags) *within your build process*, so you can make sure the rest of your build succeeds before publishing.
+- Publish a new version *only if* your CI succeeds - the last thing you want is to publish and then realize your test suite was failing. But your build failure came back after you ran `elm publish` by hand. This tool fixes that problem by running `elm publish` for you (and creating the appropriate git tags) *within your build process*, so you can make sure the rest of your build succeeds before publishing.
 
 The ideal that this tool strives for is:
 
