@@ -4,7 +4,7 @@ import {default as axios} from 'axios'
 import {Toolkit} from 'actions-toolkit'
 import * as github from '@actions/github'
 import * as octokitRest from '@octokit/rest'
-import {createAnnotatedTag, getDefaultBranch} from './git-helpers'
+import {createAnnotatedTag, getDefaultBranch, checkClean} from './git-helpers'
 import * as io from '@actions/io'
 import {GitHub} from '@actions/github/lib/utils'
 
@@ -91,6 +91,10 @@ async function run(): Promise<void> {
       preventPublishReasons.push(
         `This action only publishes from the default branch (currently set to ${defaultBranch}).`
       )
+    }
+    const cleanDiffProblem = await checkClean()
+    if (cleanDiffProblem) {
+      preventPublishReasons.push(cleanDiffProblem)
     }
 
     const isPublishable = preventPublishReasons.length === 0

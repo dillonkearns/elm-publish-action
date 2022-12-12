@@ -47,3 +47,40 @@ export async function getDefaultBranch(octokit: Octokit): Promise<string> {
     throw new Error('Could not find GITHUB_REPOSITORY')
   }
 }
+
+export async function checkClean(): Promise<string | null> {
+  const exec = require('@actions/exec')
+
+  let diffOutput = ''
+  let errorOutput = ''
+
+  const options = {
+    listeners: {
+      stdout: (data: Buffer) => {
+        diffOutput += data.toString()
+      },
+      stderr: (data: Buffer) => {
+        errorOutput += data.toString()
+      }
+    }
+  }
+
+  try {
+    // similar to the Elm compiler's git diff check at https://github.com/elm/compiler/blob/770071accf791e8171440709effe71e78a9ab37c/terminal/src/Publish.hs
+    // but with a slight varation in order to print the list of files and their status from the diff command
+    await exec.exec(
+      'git',
+      ['diff-index', '--quiet', 'HEAD', '--name-status', '--'],
+      options
+    )
+    return null
+  } catch (error) {
+    return [
+      "The `elm publish` command expects a clean diff. elm-publish-action checks your diff to make sure your publish command will succeed when it's time to run it. This is the diff:\n\n",
+      diffOutput,
+      // TODO note about stashing
+      // TODO should there be an option to stash automatically for files that aren't in the `src/` folder, or README or elm.json?
+      'You can check your diff locally by running `git diff-index HEAD --name-status --`'
+    ].join('\n')
+  }
+}
