@@ -45628,7 +45628,7 @@ function checkClean() {
         try {
             // similar to the Elm compiler's git diff check at https://github.com/elm/compiler/blob/770071accf791e8171440709effe71e78a9ab37c/terminal/src/Publish.hs
             // but with a slight varation in order to print the list of files and their status from the diff command
-            yield exec.exec('git', ['diff-index', '--quiet', 'HEAD', '--name-status', '--'], options);
+            yield exec.exec('git', ['diff-index', '--name-status', '--exit-code', 'HEAD', '--'], options);
             return null;
         }
         catch (error) {
