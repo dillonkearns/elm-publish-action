@@ -70,7 +70,7 @@ export async function checkClean(): Promise<string | null> {
     // but with a slight varation in order to print the list of files and their status from the diff command
     await exec.exec(
       'git',
-      ['diff-index', '--quiet', 'HEAD', '--name-status', '--'],
+      ['diff-index', '--name-status', '--exit-code', 'HEAD', '--'],
       options
     )
     return null
