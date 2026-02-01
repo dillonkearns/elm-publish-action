@@ -1,5 +1,8 @@
-import * as process from 'process'
-import * as cp from 'child_process'
-import * as path from 'path'
+import { describe, it, expect } from '@jest/globals'
 
-test('throws invalid number', async () => {})
+describe('elm-publish-action', () => {
+  it('should be tested', () => {
+    // TODO: Add actual tests
+    expect(true).toBe(true)
+  })
+})
