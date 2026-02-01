@@ -55,10 +55,10 @@ you'll get a chance to fix it before the release goes out.
 You can pass in an input like this:
 
 ```yml
-- uses: dillonkearns/elm-publish-action@v1
-with:
-  github-token: ${{ secrets.GITHUB_TOKEN }}
-  path-to-elm: ./node_modules/.bin/elm
+- uses: dillonkearns/elm-publish-action@v2
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    path-to-elm: ./node_modules/.bin/elm
 ```
 
 And it will use the supplied path. Otherwise, it will use whatever elm binary it finds on the PATH.
@@ -84,25 +84,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Use Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: 15
-      - uses: actions/cache@v1
+          node-version: 20
+      - uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         id: elm-cache
         with:
           path: ~/.elm
           key: ${{ runner.os }}-elm--home-${{ hashFiles('**/elm.json') }}
       - run: npm ci
       - run: npx --no-install elm make --output /dev/null && cd examples && npx --no-install elm make src/*.elm --output /dev/null && cd ..
-      - uses: dillonkearns/elm-publish-action@v1
+      - uses: dillonkearns/elm-publish-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-elm: ./node_modules/.bin/elm
@@ -113,13 +113,20 @@ jobs:
 You can run this action in `dry-run` mode and use the `is-publishable` output to see if it will try to perform a publish. One way you can use this is to perform a pre-publish action.
 
 ```yml
-      - uses: dillonkearns/elm-publish-action@v1
-        id: publish
-        with:
-          dry-run: true
-          path-to-elm: ./node_modules/.bin/elm
-      - if: steps.publish.outputs.is-publishable == 'true'
-         run: echo "elm-publish-action is going to publish if run without dry-run=true"
+- uses: dillonkearns/elm-publish-action@v2
+  id: publish
+  with:
+    dry-run: true
+    path-to-elm: ./node_modules/.bin/elm
+- if: steps.publish.outputs.is-publishable == 'true'
+  run: echo "elm-publish-action is going to publish if run without dry-run=true"
 ```
 
 Note that there is no `github-token` key. This action will fail if you provide a `github-token` in `dry-run` mode. It requires you to omit the token for a dry-run to ensure that it _can't_ publish.
+
+## Upgrading from v1
+
+v2 modernizes the action internals but maintains the same interface:
+
+- **Node 20** runtime (previously Node 12)
+- Same inputs and outputs - no workflow changes needed beyond updating `@v1` to `@v2`
