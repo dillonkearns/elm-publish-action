@@ -7,7 +7,9 @@ import { Octokit } from '@octokit/rest'
 import {
   createAnnotatedTag,
   getDefaultBranch,
-  checkClean
+  getChangedFiles,
+  stashFiles,
+  popStash
 } from './git-helpers.js'
 import * as io from '@actions/io'
 
@@ -94,9 +96,15 @@ async function run(): Promise<void> {
         `This action only publishes from the default branch (currently set to ${defaultBranch}).`
       )
     }
-    const cleanDiffProblem = await checkClean()
-    if (cleanDiffProblem) {
-      preventPublishReasons.push(cleanDiffProblem)
+
+    // Check for changes - only Elm-related files should block publishing
+    const changedFiles = await getChangedFiles()
+    if (changedFiles.elmRelated.length > 0) {
+      preventPublishReasons.push(
+        `The following Elm-related files have uncommitted changes:\n` +
+          changedFiles.elmRelated.map(f => `  - ${f}`).join('\n') +
+          `\n\nThe \`elm publish\` command expects these files to be committed.`
+      )
     }
 
     const isPublishable = preventPublishReasons.length === 0
@@ -114,12 +122,23 @@ async function run(): Promise<void> {
           'Skipping publish because dry-run is set to true. Without dry-run, publish would run now.'
         )
       } else {
-        await tryPublish(
-          octokit,
-          pathToCompiler,
-          githubRepo,
-          currentElmJsonVersion
-        )
+        // Stash unrelated files if any, so elm publish sees a clean git state
+        const hasUnrelatedChanges = changedFiles.unrelated.length > 0
+        if (hasUnrelatedChanges) {
+          await stashFiles(changedFiles.unrelated)
+        }
+        try {
+          await tryPublish(
+            octokit,
+            pathToCompiler,
+            githubRepo,
+            currentElmJsonVersion
+          )
+        } finally {
+          if (hasUnrelatedChanges) {
+            await popStash()
+          }
+        }
       }
     }
   } catch (error) {

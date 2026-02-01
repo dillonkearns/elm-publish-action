@@ -54170,6 +54170,79 @@ var Octokit = Octokit$1.plugin(
   userAgent: `octokit-rest.js/${VERSION}`
 });
 
+// Files that matter for elm publish - changes to these should block publishing
+function isElmRelated(filePath) {
+    // Exact matches at root
+    if (filePath === 'elm.json' ||
+        filePath === 'README.md' ||
+        filePath === 'LICENSE') {
+        return true;
+    }
+    // Source directory
+    if (filePath.startsWith('src/')) {
+        return true;
+    }
+    return false;
+}
+async function execGetOutput(command, args) {
+    let output = '';
+    await execExports.exec(command, args, {
+        listeners: {
+            stdout: (data) => {
+                output += data.toString();
+            }
+        }
+    });
+    return output;
+}
+async function getChangedFiles() {
+    // Get tracked changes (modified, added, deleted)
+    const diffOutput = await execGetOutput('git', [
+        'diff-index',
+        '--name-only',
+        'HEAD',
+        '--'
+    ]);
+    const trackedChanges = diffOutput.split('\n').filter(f => f.trim());
+    // Get untracked files (excluding ignored files)
+    const untrackedOutput = await execGetOutput('git', [
+        'ls-files',
+        '--others',
+        '--exclude-standard'
+    ]);
+    const untrackedFiles = untrackedOutput.split('\n').filter(f => f.trim());
+    // Combine and dedupe
+    const allChanges = [...new Set([...trackedChanges, ...untrackedFiles])];
+    const elmRelated = [];
+    const unrelated = [];
+    for (const filePath of allChanges) {
+        if (isElmRelated(filePath)) {
+            elmRelated.push(filePath);
+        }
+        else {
+            unrelated.push(filePath);
+        }
+    }
+    return { elmRelated, unrelated };
+}
+async function stashFiles(files) {
+    if (files.length === 0)
+        return;
+    coreExports.info(`Stashing ${files.length} unrelated file(s): ${files.join(', ')}`);
+    await execExports.exec('git', [
+        'stash',
+        'push',
+        '--include-untracked',
+        '-m',
+        'elm-publish-action',
+        '--',
+        ...files
+    ]);
+}
+async function popStash() {
+    coreExports.info('Restoring stashed files');
+    await execExports.exec('git', ['stash', 'pop']);
+}
 async function createAnnotatedTag(octokit, tag) {
     const [repoOwner, repoName] = process.env['GITHUB_REPOSITORY']?.split('/') || ['', ''];
     if (!process.env['GITHUB_SHA']) {
@@ -54202,34 +54275,6 @@ async function getDefaultBranch(octokit) {
     }
     else {
         throw new Error('Could not find GITHUB_REPOSITORY');
-    }
-}
-async function checkClean() {
-    let diffOutput = '';
-    const options = {
-        listeners: {
-            stdout: (data) => {
-                diffOutput += data.toString();
-            },
-            stderr: (data) => {
-                diffOutput += data.toString();
-            }
-        }
-    };
-    try {
-        // similar to the Elm compiler's git diff check at https://github.com/elm/compiler/blob/770071accf791e8171440709effe71e78a9ab37c/terminal/src/Publish.hs
-        // but with a slight varation in order to print the list of files and their status from the diff command
-        await execExports.exec('git', ['diff-index', '--name-status', '--exit-code', 'HEAD', '--'], options);
-        return null;
-    }
-    catch {
-        return [
-            "The `elm publish` command expects a clean diff. elm-publish-action checks your diff to make sure your publish command will succeed when it's time to run it. This is the diff:\n\n",
-            diffOutput,
-            // TODO note about stashing
-            // TODO should there be an option to stash automatically for files that aren't in the `src/` folder, or README or elm.json?
-            'You can check your diff locally by running `git diff-index HEAD --name-status --`'
-        ].join('\n');
     }
 }
 
@@ -54295,9 +54340,12 @@ async function run() {
             }
             preventPublishReasons.push(`This action only publishes from the default branch (currently set to ${defaultBranch}).`);
         }
-        const cleanDiffProblem = await checkClean();
-        if (cleanDiffProblem) {
-            preventPublishReasons.push(cleanDiffProblem);
+        // Check for changes - only Elm-related files should block publishing
+        const changedFiles = await getChangedFiles();
+        if (changedFiles.elmRelated.length > 0) {
+            preventPublishReasons.push(`The following Elm-related files have uncommitted changes:\n` +
+                changedFiles.elmRelated.map(f => `  - ${f}`).join('\n') +
+                `\n\nThe \`elm publish\` command expects these files to be committed.`);
         }
         const isPublishable = preventPublishReasons.length === 0;
         coreExports.setOutput('is-publishable', `${isPublishable}`);
@@ -54312,7 +54360,19 @@ async function run() {
                 coreExports.info('Skipping publish because dry-run is set to true. Without dry-run, publish would run now.');
             }
             else {
-                await tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion);
+                // Stash unrelated files if any, so elm publish sees a clean git state
+                const hasUnrelatedChanges = changedFiles.unrelated.length > 0;
+                if (hasUnrelatedChanges) {
+                    await stashFiles(changedFiles.unrelated);
+                }
+                try {
+                    await tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion);
+                }
+                finally {
+                    if (hasUnrelatedChanges) {
+                        await popStash();
+                    }
+                }
             }
         }
     }

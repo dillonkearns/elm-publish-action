@@ -1,10 +1,100 @@
 import { Octokit } from '@octokit/rest'
 import * as github from '@actions/github'
 import { exec } from '@actions/exec'
+import * as core from '@actions/core'
 
 type GitHubOctokit = ReturnType<typeof github.getOctokit>
 
 type OctokitClient = Octokit | GitHubOctokit
+
+// Files that matter for elm publish - changes to these should block publishing
+function isElmRelated(filePath: string): boolean {
+  // Exact matches at root
+  if (
+    filePath === 'elm.json' ||
+    filePath === 'README.md' ||
+    filePath === 'LICENSE'
+  ) {
+    return true
+  }
+  // Source directory
+  if (filePath.startsWith('src/')) {
+    return true
+  }
+  return false
+}
+
+export interface ChangedFilesResult {
+  elmRelated: string[]
+  unrelated: string[]
+}
+
+async function execGetOutput(command: string, args: string[]): Promise<string> {
+  let output = ''
+  await exec(command, args, {
+    listeners: {
+      stdout: (data: Buffer) => {
+        output += data.toString()
+      }
+    }
+  })
+  return output
+}
+
+export async function getChangedFiles(): Promise<ChangedFilesResult> {
+  // Get tracked changes (modified, added, deleted)
+  const diffOutput = await execGetOutput('git', [
+    'diff-index',
+    '--name-only',
+    'HEAD',
+    '--'
+  ])
+  const trackedChanges = diffOutput.split('\n').filter(f => f.trim())
+
+  // Get untracked files (excluding ignored files)
+  const untrackedOutput = await execGetOutput('git', [
+    'ls-files',
+    '--others',
+    '--exclude-standard'
+  ])
+  const untrackedFiles = untrackedOutput.split('\n').filter(f => f.trim())
+
+  // Combine and dedupe
+  const allChanges = [...new Set([...trackedChanges, ...untrackedFiles])]
+
+  const elmRelated: string[] = []
+  const unrelated: string[] = []
+
+  for (const filePath of allChanges) {
+    if (isElmRelated(filePath)) {
+      elmRelated.push(filePath)
+    } else {
+      unrelated.push(filePath)
+    }
+  }
+
+  return { elmRelated, unrelated }
+}
+
+export async function stashFiles(files: string[]): Promise<void> {
+  if (files.length === 0) return
+
+  core.info(`Stashing ${files.length} unrelated file(s): ${files.join(', ')}`)
+  await exec('git', [
+    'stash',
+    'push',
+    '--include-untracked',
+    '-m',
+    'elm-publish-action',
+    '--',
+    ...files
+  ])
+}
+
+export async function popStash(): Promise<void> {
+  core.info('Restoring stashed files')
+  await exec('git', ['stash', 'pop'])
+}
 
 export async function createAnnotatedTag(
   octokit: OctokitClient,
@@ -48,39 +138,5 @@ export async function getDefaultBranch(
     return repoDetails.data.default_branch
   } else {
     throw new Error('Could not find GITHUB_REPOSITORY')
-  }
-}
-
-export async function checkClean(): Promise<string | null> {
-  let diffOutput = ''
-
-  const options = {
-    listeners: {
-      stdout: (data: Buffer) => {
-        diffOutput += data.toString()
-      },
-      stderr: (data: Buffer) => {
-        diffOutput += data.toString()
-      }
-    }
-  }
-
-  try {
-    // similar to the Elm compiler's git diff check at https://github.com/elm/compiler/blob/770071accf791e8171440709effe71e78a9ab37c/terminal/src/Publish.hs
-    // but with a slight varation in order to print the list of files and their status from the diff command
-    await exec(
-      'git',
-      ['diff-index', '--name-status', '--exit-code', 'HEAD', '--'],
-      options
-    )
-    return null
-  } catch {
-    return [
-      "The `elm publish` command expects a clean diff. elm-publish-action checks your diff to make sure your publish command will succeed when it's time to run it. This is the diff:\n\n",
-      diffOutput,
-      // TODO note about stashing
-      // TODO should there be an option to stash automatically for files that aren't in the `src/` folder, or README or elm.json?
-      'You can check your diff locally by running `git diff-index HEAD --name-status --`'
-    ].join('\n')
   }
 }
