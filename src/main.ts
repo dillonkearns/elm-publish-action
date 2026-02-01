@@ -97,15 +97,25 @@ async function run(): Promise<void> {
       )
     }
 
-    // Check for changes - only Elm-related files should block publishing
+    // Check for changes - Elm-related files must be clean (fail early, even if not publishing)
+    core.startGroup('Checking for uncommitted changes')
     const changedFiles = await getChangedFiles()
     if (changedFiles.elmRelated.length > 0) {
-      preventPublishReasons.push(
+      core.endGroup()
+      const message =
         `The following Elm-related files have uncommitted changes:\n` +
-          changedFiles.elmRelated.map(f => `  - ${f}`).join('\n') +
-          `\n\nThe \`elm publish\` command expects these files to be committed.`
+        changedFiles.elmRelated.map(f => `  - ${f}`).join('\n') +
+        `\n\nThe \`elm publish\` command expects these files to be committed.`
+      core.setFailed(message)
+      return
+    } else if (changedFiles.unrelated.length > 0) {
+      core.info(
+        `Found ${changedFiles.unrelated.length} unrelated file(s) with changes (will be stashed)`
       )
+    } else {
+      core.info('No uncommitted changes')
     }
+    core.endGroup()
 
     const isPublishable = preventPublishReasons.length === 0
     core.setOutput('is-publishable', `${isPublishable}`)
@@ -156,7 +166,10 @@ async function tryPublish(
   githubRepo: string,
   currentElmJsonVersion: string
 ): Promise<void> {
+  core.startGroup('Verifying package')
   const result = await runCommandWithOutput(pathToCompiler, ['publish'])
+  core.endGroup()
+
   if (result.status === 0) {
     core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
     // tag already existed -- no need to call publish
@@ -200,13 +213,14 @@ async function performPublish(
   pathToCompiler: string,
   githubRepo: string
 ): Promise<void> {
-  core.startGroup(`Creating git tag`)
+  core.startGroup(`Creating git tag ${currentElmJsonVersion}`)
   await createAnnotatedTag(octokit, currentElmJsonVersion)
   await exec(`git fetch --tags`)
-  core.info(`Created git tag ${currentElmJsonVersion}`)
   core.endGroup()
 
+  core.startGroup('Publishing to Elm package repository')
   await exec(pathToCompiler, [`publish`])
+  core.endGroup()
 
   core.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`)
 }

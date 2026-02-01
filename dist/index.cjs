@@ -54178,8 +54178,8 @@ function isElmRelated(filePath) {
         filePath === 'LICENSE') {
         return true;
     }
-    // Source directory
-    if (filePath.startsWith('src/')) {
+    // Elm source files only
+    if (filePath.startsWith('src/') && filePath.endsWith('.elm')) {
         return true;
     }
     return false;
@@ -54187,6 +54187,7 @@ function isElmRelated(filePath) {
 async function execGetOutput(command, args) {
     let output = '';
     await execExports.exec(command, args, {
+        silent: true,
         listeners: {
             stdout: (data) => {
                 output += data.toString();
@@ -54228,7 +54229,8 @@ async function getChangedFiles() {
 async function stashFiles(files) {
     if (files.length === 0)
         return;
-    coreExports.info(`Stashing ${files.length} unrelated file(s): ${files.join(', ')}`);
+    coreExports.startGroup(`Stashing ${files.length} unrelated file(s)`);
+    coreExports.info(`Files: ${files.join(', ')}`);
     await execExports.exec('git', [
         'stash',
         'push',
@@ -54238,10 +54240,12 @@ async function stashFiles(files) {
         '--',
         ...files
     ]);
+    coreExports.endGroup();
 }
 async function popStash() {
-    coreExports.info('Restoring stashed files');
+    coreExports.startGroup('Restoring stashed files');
     await execExports.exec('git', ['stash', 'pop']);
+    coreExports.endGroup();
 }
 async function createAnnotatedTag(octokit, tag) {
     const [repoOwner, repoName] = process.env['GITHUB_REPOSITORY']?.split('/') || ['', ''];
@@ -54340,13 +54344,24 @@ async function run() {
             }
             preventPublishReasons.push(`This action only publishes from the default branch (currently set to ${defaultBranch}).`);
         }
-        // Check for changes - only Elm-related files should block publishing
+        // Check for changes - Elm-related files must be clean (fail early, even if not publishing)
+        coreExports.startGroup('Checking for uncommitted changes');
         const changedFiles = await getChangedFiles();
         if (changedFiles.elmRelated.length > 0) {
-            preventPublishReasons.push(`The following Elm-related files have uncommitted changes:\n` +
+            coreExports.endGroup();
+            const message = `The following Elm-related files have uncommitted changes:\n` +
                 changedFiles.elmRelated.map(f => `  - ${f}`).join('\n') +
-                `\n\nThe \`elm publish\` command expects these files to be committed.`);
+                `\n\nThe \`elm publish\` command expects these files to be committed.`;
+            coreExports.setFailed(message);
+            return;
         }
+        else if (changedFiles.unrelated.length > 0) {
+            coreExports.info(`Found ${changedFiles.unrelated.length} unrelated file(s) with changes (will be stashed)`);
+        }
+        else {
+            coreExports.info('No uncommitted changes');
+        }
+        coreExports.endGroup();
         const isPublishable = preventPublishReasons.length === 0;
         coreExports.setOutput('is-publishable', `${isPublishable}`);
         if (!isPublishable) {
@@ -54386,7 +54401,9 @@ async function run() {
     }
 }
 async function tryPublish(octokit, pathToCompiler, githubRepo, currentElmJsonVersion) {
+    coreExports.startGroup('Verifying package');
     const result = await runCommandWithOutput(pathToCompiler, ['publish']);
+    coreExports.endGroup();
     if (result.status === 0) {
         coreExports.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
         // tag already existed -- no need to call publish
@@ -54417,12 +54434,13 @@ async function runCommandWithOutput(command, args) {
     return { status, output };
 }
 async function performPublish(octokit, currentElmJsonVersion, pathToCompiler, githubRepo) {
-    coreExports.startGroup(`Creating git tag`);
+    coreExports.startGroup(`Creating git tag ${currentElmJsonVersion}`);
     await createAnnotatedTag(octokit, currentElmJsonVersion);
     await execExports.exec(`git fetch --tags`);
-    coreExports.info(`Created git tag ${currentElmJsonVersion}`);
     coreExports.endGroup();
+    coreExports.startGroup('Publishing to Elm package repository');
     await execExports.exec(pathToCompiler, [`publish`]);
+    coreExports.endGroup();
     coreExports.info(`Published! ${publishedUrl(githubRepo, currentElmJsonVersion)}`);
 }
 function publishedUrl(repoWithOwner, version) {

@@ -17,8 +17,8 @@ function isElmRelated(filePath: string): boolean {
   ) {
     return true
   }
-  // Source directory
-  if (filePath.startsWith('src/')) {
+  // Elm source files only
+  if (filePath.startsWith('src/') && filePath.endsWith('.elm')) {
     return true
   }
   return false
@@ -32,6 +32,7 @@ export interface ChangedFilesResult {
 async function execGetOutput(command: string, args: string[]): Promise<string> {
   let output = ''
   await exec(command, args, {
+    silent: true,
     listeners: {
       stdout: (data: Buffer) => {
         output += data.toString()
@@ -79,7 +80,8 @@ export async function getChangedFiles(): Promise<ChangedFilesResult> {
 export async function stashFiles(files: string[]): Promise<void> {
   if (files.length === 0) return
 
-  core.info(`Stashing ${files.length} unrelated file(s): ${files.join(', ')}`)
+  core.startGroup(`Stashing ${files.length} unrelated file(s)`)
+  core.info(`Files: ${files.join(', ')}`)
   await exec('git', [
     'stash',
     'push',
@@ -89,11 +91,13 @@ export async function stashFiles(files: string[]): Promise<void> {
     '--',
     ...files
   ])
+  core.endGroup()
 }
 
 export async function popStash(): Promise<void> {
-  core.info('Restoring stashed files')
+  core.startGroup('Restoring stashed files')
   await exec('git', ['stash', 'pop'])
+  core.endGroup()
 }
 
 export async function createAnnotatedTag(

@@ -20,6 +20,19 @@ This action is idempotent, so you can run this as much as you want and it will a
 - If it's publishable, tag and publish
 - If it's not publishable, don't tag, just show failure message in CI output
 
+## Handling uncommitted changes
+
+The `elm publish` command requires a clean git working directory. This action intelligently handles uncommitted changes:
+
+**Elm-related files** - If any of these have uncommitted changes, the action **fails immediately** (even on PR branches where publishing wouldn't happen). This gives you early feedback that something is wrong:
+
+- `elm.json`
+- `README.md`
+- `LICENSE`
+- `src/**/*.elm`
+
+**Unrelated files** - Files like `package-lock.json`, `docs.json`, or other build artifacts are automatically stashed before publishing and restored afterward. This means CI-generated changes won't block your publish.
+
 ## Initial publish must be done manually
 
 This action will entirely skip publishing if you haven't yet published a release.
