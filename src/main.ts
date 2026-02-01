@@ -1,18 +1,21 @@
 import * as core from '@actions/core'
-import {exec} from '@actions/exec'
-import {default as axios} from 'axios'
-import {Toolkit} from 'actions-toolkit'
+import * as fs from 'fs'
+import { exec } from '@actions/exec'
+import axios from 'axios'
 import * as github from '@actions/github'
-import * as octokitRest from '@octokit/rest'
-import {createAnnotatedTag, getDefaultBranch, checkClean} from './git-helpers'
+import { Octokit } from '@octokit/rest'
+import {
+  createAnnotatedTag,
+  getDefaultBranch,
+  checkClean
+} from './git-helpers.js'
 import * as io from '@actions/io'
-import {GitHub} from '@actions/github/lib/utils'
 
-type OctokitUtil = InstanceType<typeof GitHub>
+type GitHubOctokit = ReturnType<typeof github.getOctokit>
 
-type Octokit = octokitRest.Octokit | OctokitUtil
+type OctokitClient = Octokit | GitHubOctokit
 
-function initializeOctokit(dryRun: boolean): Octokit {
+function initializeOctokit(dryRun: boolean): OctokitClient {
   if (dryRun) {
     const token = core.getInput('github-token')
     if (token && token !== '') {
@@ -22,17 +25,16 @@ function initializeOctokit(dryRun: boolean): Octokit {
     } else {
       // we can't use github.getOctokit because it will throw an error without an authToken argument
       // https://github.com/actions/toolkit/blob/1cc56db0ff126f4d65aeb83798852e02a2c180c3/packages/github/src/internal/utils.ts#L10
-      return new octokitRest.Octokit()
+      return new Octokit()
     }
   } else {
-    const gitHubToken = core.getInput('github-token', {required: true})
+    const gitHubToken = core.getInput('github-token', { required: true })
     return github.getOctokit(gitHubToken)
   }
 }
 
 async function run(): Promise<void> {
   try {
-    const tools = new Toolkit()
     const dryRun = core.getInput('dry-run').toLowerCase() === 'true'
     const octokit = initializeOctokit(dryRun)
     let pathToCompiler = core.getInput('path-to-elm')
@@ -62,8 +64,8 @@ async function run(): Promise<void> {
         )
       })
 
-    const currentElmJsonVersion: string = JSON.parse(tools.getFile('elm.json'))
-      .version
+    const elmJsonContent = fs.readFileSync('elm.json', 'utf8')
+    const currentElmJsonVersion: string = JSON.parse(elmJsonContent).version
     core.debug(`currentElmJsonVersion ${currentElmJsonVersion}`)
 
     if (currentElmJsonVersion === '1.0.0') {
@@ -86,7 +88,7 @@ async function run(): Promise<void> {
     }
     if (githubRef !== `refs/heads/${defaultBranch}`) {
       if (preventPublishReasons.length === 0) {
-        createPendingPublishStatus(octokit, pathToCompiler)
+        createPendingPublishStatus(pathToCompiler)
       }
       preventPublishReasons.push(
         `This action only publishes from the default branch (currently set to ${defaultBranch}).`
@@ -121,12 +123,16 @@ async function run(): Promise<void> {
       }
     }
   } catch (error) {
-    core.setFailed(error.message)
+    if (error instanceof Error) {
+      core.setFailed(error.message)
+    } else {
+      core.setFailed(String(error))
+    }
   }
 }
 
 async function tryPublish(
-  octokit: Octokit,
+  octokit: OctokitClient,
   pathToCompiler: string,
   githubRepo: string,
   currentElmJsonVersion: string
@@ -150,7 +156,7 @@ async function tryPublish(
 async function runCommandWithOutput(
   command: string,
   args: string[]
-): Promise<{status: number; output: string}> {
+): Promise<{ status: number; output: string }> {
   let output = ''
   const options = {
     listeners: {
@@ -166,11 +172,11 @@ async function runCommandWithOutput(
     ...options,
     ignoreReturnCode: true
   })
-  return {status, output}
+  return { status, output }
 }
 
 async function performPublish(
-  octokit: Octokit,
+  octokit: OctokitClient,
   currentElmJsonVersion: string,
   pathToCompiler: string,
   githubRepo: string
@@ -191,7 +197,6 @@ function publishedUrl(repoWithOwner: string, version: string): string {
 }
 
 async function createPendingPublishStatus(
-  octo: Octokit,
   pathToCompiler: string
 ): Promise<void> {
   const diffStatus = await getElmDiffStatus(pathToCompiler)

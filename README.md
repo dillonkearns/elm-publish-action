@@ -7,18 +7,18 @@ create a tag in github and run publish.
 ## Project Goals
 
 - Publish a new Elm package version simply by running `elm bump` and committing your `elm.json` with the new version. From there, this tool will perform the rest of the publish steps.
-- Publish a new version *only if* your CI succeeds - the last thing you want is to publish and then realize your test suite was failing. But your build failure came back after you ran `elm publish` by hand. This tool fixes that problem by running `elm publish` for you (and creating the appropriate git tags) *within your build process*, so you can make sure the rest of your build succeeds before publishing.
+- Publish a new version _only if_ your CI succeeds - the last thing you want is to publish and then realize your test suite was failing. But your build failure came back after you ran `elm publish` by hand. This tool fixes that problem by running `elm publish` for you (and creating the appropriate git tags) _within your build process_, so you can make sure the rest of your build succeeds before publishing.
 
 The ideal that this tool strives for is:
 
-- Any time `elm publish` would fail, this package will let you know *before* you try to publish to give you early feedback. You don't want to wait to find out that your documentation isn't ready to publish until you decide to publish. You want to get that feedback early and often, well before you try to publish.
+- Any time `elm publish` would fail, this package will let you know _before_ you try to publish to give you early feedback. You don't want to wait to find out that your documentation isn't ready to publish until you decide to publish. You want to get that feedback early and often, well before you try to publish.
 
 This action is idempotent, so you can run this as much as you want and it will always do the right thing:
-* No-op and succeed if the current version in elm.json exists in the registry (it actually fetches the published examples to check from the source of truth)
-* Try to publish otherwise
-* If it's publishable, tag and publish
-* If it's not publishable, don't tag, just show failure message in CI output
 
+- No-op and succeed if the current version in elm.json exists in the registry (it actually fetches the published examples to check from the source of truth)
+- Try to publish otherwise
+- If it's publishable, tag and publish
+- If it's not publishable, don't tag, just show failure message in CI output
 
 ## Initial publish must be done manually
 
@@ -52,7 +52,6 @@ And it will use the supplied path. Otherwise, it will use whatever elm binary it
 
 ## Example Workflow Setup
 
-
 ```yml
 name: Elm Actions
 
@@ -66,7 +65,6 @@ on:
 
 jobs:
   # define other jobs here, like test, etc.
-
 
   publish-elm-package:
     needs: [test, lint, validate-package] # make sure all your other jobs succeed before trying to publish
@@ -111,4 +109,4 @@ You can run this action in `dry-run` mode and use the `is-publishable` output to
          run: echo "elm-publish-action is going to publish if run without dry-run=true"
 ```
 
-Note that there is no `github-token` key. This action will fail if you provide a `github-token` in `dry-run` mode. It requires you to omit the token for a dry-run to ensure that it *can't* publish.
+Note that there is no `github-token` key. This action will fail if you provide a `github-token` in `dry-run` mode. It requires you to omit the token for a dry-run to ensure that it _can't_ publish.

@@ -1,12 +1,13 @@
-import octokitRest from '@octokit/rest'
-import {GitHub} from '@actions/github/lib/utils'
+import { Octokit } from '@octokit/rest'
+import * as github from '@actions/github'
+import { exec } from '@actions/exec'
 
-type OctokitUtil = InstanceType<typeof GitHub>
+type GitHubOctokit = ReturnType<typeof github.getOctokit>
 
-type Octokit = octokitRest.Octokit | OctokitUtil
+type OctokitClient = Octokit | GitHubOctokit
 
 export async function createAnnotatedTag(
-  octokit: Octokit,
+  octokit: OctokitClient,
   tag: string
 ): Promise<void> {
   const [repoOwner, repoName] = process.env['GITHUB_REPOSITORY']?.split(
@@ -14,10 +15,10 @@ export async function createAnnotatedTag(
   ) || ['', '']
 
   if (!process.env['GITHUB_SHA']) {
-    throw "Couldn't find GITHUB_SHA."
+    throw new Error("Couldn't find GITHUB_SHA.")
   }
 
-  const createTagResponse = await octokit.git.createTag({
+  await octokit.rest.git.createTag({
     owner: repoOwner,
     repo: repoName,
     tag,
@@ -26,7 +27,7 @@ export async function createAnnotatedTag(
     type: 'commit'
   })
 
-  const createRefResponse = await octokit.git.createRef({
+  await octokit.rest.git.createRef({
     owner: repoOwner,
     repo: repoName,
     ref: `refs/tags/${tag}`,
@@ -34,11 +35,13 @@ export async function createAnnotatedTag(
   })
 }
 
-export async function getDefaultBranch(octokit: Octokit): Promise<string> {
+export async function getDefaultBranch(
+  octokit: OctokitClient
+): Promise<string> {
   const githubRepo = process.env['GITHUB_REPOSITORY']
   if (githubRepo) {
     const [owner, repo] = githubRepo.split('/')
-    const repoDetails = await octokit.repos.get({
+    const repoDetails = await octokit.rest.repos.get({
       owner,
       repo
     })
@@ -49,10 +52,7 @@ export async function getDefaultBranch(octokit: Octokit): Promise<string> {
 }
 
 export async function checkClean(): Promise<string | null> {
-  const exec = require('@actions/exec')
-
   let diffOutput = ''
-  let errorOutput = ''
 
   const options = {
     listeners: {
@@ -60,7 +60,7 @@ export async function checkClean(): Promise<string | null> {
         diffOutput += data.toString()
       },
       stderr: (data: Buffer) => {
-        errorOutput += data.toString()
+        diffOutput += data.toString()
       }
     }
   }
@@ -68,13 +68,13 @@ export async function checkClean(): Promise<string | null> {
   try {
     // similar to the Elm compiler's git diff check at https://github.com/elm/compiler/blob/770071accf791e8171440709effe71e78a9ab37c/terminal/src/Publish.hs
     // but with a slight varation in order to print the list of files and their status from the diff command
-    await exec.exec(
+    await exec(
       'git',
       ['diff-index', '--name-status', '--exit-code', 'HEAD', '--'],
       options
     )
     return null
-  } catch (error) {
+  } catch {
     return [
       "The `elm publish` command expects a clean diff. elm-publish-action checks your diff to make sure your publish command will succeed when it's time to run it. This is the diff:\n\n",
       diffOutput,
