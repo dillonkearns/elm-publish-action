@@ -22,5 +22,5 @@ outputs:
     description: 'Whether this Elm package is in a state that can be published. In a dry-run, this will tell you whether elm-publish-action will attempt to publish in a real run.'
 
 runs:
-  using: 'node22'
+  using: 'node24'
   main: 'dist/index.cjs'
